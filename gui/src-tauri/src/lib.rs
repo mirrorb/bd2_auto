@@ -87,8 +87,8 @@ async fn core_input(input: String, state: tauri::State<'_, ProcessState>) -> Res
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init()) // <--- 添加这一行来初始化 shell 插件
-        .manage(ProcessState::default())     // 这个是你自定义的状态，与 shell 插件的状态是分开的
+        .plugin(tauri_plugin_shell::init())
+        .manage(ProcessState::default())
         .invoke_handler(tauri::generate_handler![greet, core_start, core_input])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

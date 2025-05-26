@@ -1,0 +1,38 @@
+{
+    "configurations": [
+        {
+            "name": "(lldb) Attach to Tauri",
+            "type": "lldb",
+            "request": "attach",
+            "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto",
+            "sourceLanguages": [
+                "rust"
+            ]
+        },
+        {
+            "name": "(lldb) Attach to Core",
+            "type": "lldb",
+            "request": "attach",
+            "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto_core"
+        },
+        {
+            "name": "(gdb) Attach to Core",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto_core",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
