@@ -1,4 +1,4 @@
-#include "core/json_rpc_handler.h"
+#include "basic/json_rpc_handler.h"
 #include <iostream>
 
 std::optional<json> JsonRpcHandler::parseRequest(const std::string& line) {

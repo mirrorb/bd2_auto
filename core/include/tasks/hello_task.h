@@ -1,7 +1,7 @@
 #ifndef HELLO_TASK_H
 #define HELLO_TASK_H
 
-#include "core/base_task.h"
+#include "basic/base_task.h"
 #include <thread>
 #include <atomic>
 #include <string>

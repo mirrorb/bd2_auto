@@ -2,7 +2,6 @@
 #define TASK_MANAGER_H
 
 #include "base_task.h"
-#include "nlohmann/json.hpp"
 #include <memory>
 #include <string>
 #include <functional>

@@ -2,7 +2,6 @@
 #define SERVICE_APP_H
 
 #include "task_manager.h"
-#include "nlohmann/json.hpp"
 #include <atomic>
 
 class ServiceApp {

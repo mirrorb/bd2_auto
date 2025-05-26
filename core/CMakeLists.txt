@@ -38,9 +38,9 @@ include_directories(include)
 # 定义通用源文件
 set(COMMON_SOURCES
     src/main.cpp
-    src/core/service_app.cpp
-    src/core/task_manager.cpp
-    src/core/json_rpc_handler.cpp
+    src/basic/service_app.cpp
+    src/basic/task_manager.cpp
+    src/basic/json_rpc_handler.cpp
 )
 file(GLOB TASK_SOURCES CONFIGURE_DEPENDS "src/tasks/*.cpp")
 
