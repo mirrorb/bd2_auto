@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/core",
+    "rust-analyzer.linkedProjects": [
+        "${workspaceFolder}/gui/src-tauri/Cargo.toml"
+      ],
+}

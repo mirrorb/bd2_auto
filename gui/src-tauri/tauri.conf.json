@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "gui",
+  "productName": "BD2_Auto",
   "version": "0.1.0",
   "identifier": "fun.bd2auto.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "gui",
+        "title": "BD2_Auto",
         "width": 800,
         "height": 600
       }
@@ -30,6 +30,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "externalBin": [
+      "../../bin/bd2_auto_core"
     ]
   }
 }
