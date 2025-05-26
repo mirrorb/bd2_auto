@@ -1,38 +1,31 @@
 {
     "configurations": [
         {
-            "name": "(lldb) Attach to Tauri",
+            "name": "1.NPM: tauri dev",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run tauri dev",
+            "cwd": "${workspaceFolder}/gui",
+            "presentation": {
+                "group": "tauriDev",
+                "panel": "dedicated",
+                "reveal": "always"
+            }
+        },
+        {
+            "name": "2.(lldb) Attach to Tauri",
             "type": "lldb",
             "request": "attach",
             "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto",
             "sourceLanguages": [
                 "rust"
-            ]
+            ],
         },
         {
-            "name": "(lldb) Attach to Core",
+            "name": "3.(lldb) Attach to Core",
             "type": "lldb",
             "request": "attach",
-            "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto_core"
-        },
-        {
-            "name": "(gdb) Attach to Core",
-            "type": "cppdbg",
-            "request": "attach",
             "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto_core",
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                }
-            ]
         }
     ]
 }
