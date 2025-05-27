@@ -1,0 +1,52 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake Tools Build C++",
+            "type": "cmake",
+            "command": "cleanRebuild",
+            "targets": [
+                "all"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake template build task"
+        },
+        {
+            "label": "Start Tauri Dev Server",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "tauri", "dev"],
+            "isBackground": true,
+            "options": {
+                "cwd": "${workspaceFolder}/gui"
+            },
+            "problemMatcher": {
+                "owner": "tauri-dev",
+                "pattern": {
+                    "regexp": "^Running DevCommand",
+                    "file": 1, "location": 1, "message": 1
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^VITE v.*ready",
+                    "endsPattern": "^\\s*Running `target(?:\\\\|/)debug(?:\\\\|/)bd2_auto(?:\\.exe)?`"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            }
+        },
+        {
+            "label": "Build & Start Server",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "CMake Tools Build C++",
+                "Start Tauri Dev Server"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

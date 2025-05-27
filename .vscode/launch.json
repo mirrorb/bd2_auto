@@ -1,19 +1,7 @@
 {
     "configurations": [
         {
-            "name": "1.NPM: tauri dev",
-            "type": "node-terminal",
-            "request": "launch",
-            "command": "npm run tauri dev",
-            "cwd": "${workspaceFolder}/gui",
-            "presentation": {
-                "group": "tauriDev",
-                "panel": "dedicated",
-                "reveal": "always"
-            }
-        },
-        {
-            "name": "2.(lldb) Attach to Tauri",
+            "name": "Attach to Tauri Backend",
             "type": "lldb",
             "request": "attach",
             "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto",
@@ -22,10 +10,22 @@
             ],
         },
         {
-            "name": "3.(lldb) Attach to Core",
+            "name": "Attach to C++ Backend",
             "type": "lldb",
             "request": "attach",
             "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto_core",
         }
-    ]
+    ],
+    "compounds": [
+    {
+        "name": "Debug App",
+        "configurations": [
+            "Attach to C++ Backend",
+            "Attach to Tauri Backend"
+        ],
+        "preLaunchTask": "Build & Start Server",
+        "default": true,
+        "stopAll": true
+    }
+]
 }
