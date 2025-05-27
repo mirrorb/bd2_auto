@@ -13,7 +13,7 @@ public:
     static std::optional<json> parseRequest(const std::string& line);
 
     // 将JSON对象序列化为字符串并发送到stdout
-    static void sendJsonResponse(const json& j_response);
+    static void sendResponse(const json& j_response);
 
     // 创建一个标准的响应JSON对象
     // @param request: 原始请求的JSON，用于获取request_id (如果存在)

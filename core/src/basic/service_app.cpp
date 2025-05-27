@@ -4,7 +4,7 @@
 
 // ServiceApp构造函数，初始化TaskManager并传递回调
 ServiceApp::ServiceApp() : task_manager_([this](const json& progress_or_event_json){
-    JsonRpcHandler::sendJsonResponse(progress_or_event_json);
+    JsonRpcHandler::sendResponse(progress_or_event_json);
 }) {}
 
 void ServiceApp::run() {
@@ -22,7 +22,7 @@ void ServiceApp::run() {
                     request_or_error.contains("status") && request_or_error["status"] == "error" &&
                     request_or_error.contains("error_type") && request_or_error["error_type"] == "json_parse_error")
                 {
-                    JsonRpcHandler::sendJsonResponse(request_or_error);
+                    JsonRpcHandler::sendResponse(request_or_error);
                 } else {
                     processCommand(request_or_error);
                 }
@@ -39,7 +39,7 @@ void ServiceApp::run() {
 void ServiceApp::processCommand(const json& j_request) {
     // 基本验证：命令是否存在
     if (!j_request.is_object() || !j_request.contains("command")) {
-        JsonRpcHandler::sendJsonResponse(
+        JsonRpcHandler::sendResponse(
             JsonRpcHandler::createResponse(j_request, false, std::nullopt, "请求无效或缺少 'command' 字段。")
         );
         return;
@@ -50,7 +50,7 @@ void ServiceApp::processCommand(const json& j_request) {
 
     if (command == "START_TASK") {
         if (!j_request.contains("task_name") || !j_request["task_name"].is_string()) {
-             JsonRpcHandler::sendJsonResponse(
+             JsonRpcHandler::sendResponse(
                 JsonRpcHandler::createResponse(j_request, false, std::nullopt, "START_TASK 命令缺少有效的 'task_name' 字符串。")
             );
             return;
@@ -61,39 +61,39 @@ void ServiceApp::processCommand(const json& j_request) {
 
         if (task_manager_.startTask(task_name, params)) {
             response_data["message"] = "任务 '" + task_name + "' 已成功请求启动。"; // 注意措辞，启动是异步的
-            JsonRpcHandler::sendJsonResponse(
+            JsonRpcHandler::sendResponse(
                 JsonRpcHandler::createResponse(j_request, true, response_data)
             );
         } else {
-            JsonRpcHandler::sendJsonResponse(
+            JsonRpcHandler::sendResponse(
                 JsonRpcHandler::createResponse(j_request, false, std::nullopt, "启动任务 '" + task_name + "' 失败 (详见应用日志)。")
             );
         }
     } else if (command == "STOP_CURRENT_TASK") {
         if (task_manager_.stopCurrentTask()) {
             response_data["message"] = "已发送停止当前活动任务的请求。";
-             JsonRpcHandler::sendJsonResponse(
+             JsonRpcHandler::sendResponse(
                 JsonRpcHandler::createResponse(j_request, true, response_data)
             );
         } else {
-             JsonRpcHandler::sendJsonResponse(
+             JsonRpcHandler::sendResponse(
                 JsonRpcHandler::createResponse(j_request, false, std::nullopt, "停止任务请求失败或当前无活动任务。")
             );
         }
     } else if (command == "GET_STATUS") {
         json manager_status_report = task_manager_.getStatus(); // 获取包含任务状态的报告
         // manager_status_report 结构: {"active_task": {...}|null, "message": "..."}
-        JsonRpcHandler::sendJsonResponse(
+        JsonRpcHandler::sendResponse(
             JsonRpcHandler::createResponse(j_request, true, manager_status_report) // 将整个报告作为data发送
         );
     } else if (command == "SHUTDOWN") {
         response_data["message"] = "后端服务收到关闭请求，即将关闭。";
-        JsonRpcHandler::sendJsonResponse(
+        JsonRpcHandler::sendResponse(
              JsonRpcHandler::createResponse(j_request, true, response_data)
         );
         shutdown_requested_ = true; // 设置关闭标志
     } else { // 未知命令
-        JsonRpcHandler::sendJsonResponse(
+        JsonRpcHandler::sendResponse(
              JsonRpcHandler::createResponse(j_request, false, std::nullopt, "未知命令: '" + command + "'。")
         );
     }

@@ -7,18 +7,18 @@ std::optional<json> JsonRpcHandler::parseRequest(const std::string& line) {
     }
     try {
         return json::parse(line);
-    } catch (json::parse_error& e) {
+    } catch (...) {
         // 构建一个错误JSON对象返回给调用者处理，而不是直接发送
         json j_error;
         j_error["type"] = "response";
         j_error["status"] = "error";
         j_error["error_type"] = "json_parse_error";
-        j_error["message"] = "JSON解析错误: " + std::string(e.what()) + " (原始输入: '" + line + "')";
+        j_error["message"] = "JSON解析错误，源输入为： '" + line + "'";
         return j_error;
     }
 }
 
-void JsonRpcHandler::sendJsonResponse(const json& j_response) {
+void JsonRpcHandler::sendResponse(const json& j_response) {
     std::cout << j_response.dump() << std::endl; // dump()进行序列化
 }
 
