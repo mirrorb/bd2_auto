@@ -1,10 +1,9 @@
 <template>
   <div class="process-manager">
-    <span v-if="loading">加载中...</span>
-    <div v-else content>
+    <div content>
       <div class="input-area">
-        <input v-model="inputText" @keyup.enter="sendInput" :disabled="loading" />
-        <button @click="sendInput" :disabled="loading">发送</button>
+        <input v-model="inputText" @keyup.enter="sendInput" />
+        <button @click="sendInput">发送</button>
       </div>
       <div class="output-area">
         <div v-for="(output, index) in outputs" :key="index">
@@ -19,20 +18,10 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 
-const loading = ref(true)
 const inputText = ref('{"command": "START_TASK", "task_name": "hello_task"}')
 const outputs = ref<string[]>([])
 let unlisten: UnlistenFn | null = null
 import { invoke } from "@tauri-apps/api/core";
-
-const startProcess = async () => {
-  try {
-    await invoke('core_start')
-    loading.value = false
-  } catch (e) {
-    console.error('启动程序失败:', e)
-  }
-}
 
 const sendInput = async () => {
   if (!inputText.value.trim()) return
@@ -52,7 +41,6 @@ const eventHandler = async () => {
 
 onMounted(() => {
   eventHandler()
-  startProcess()
 })
 
 onUnmounted(() => {

@@ -153,6 +153,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(ProcessState::default())
+        .setup(|app| {
+            // 在应用启动时自动启动 core
+            let handle = app.app_handle().clone();
+            // 使用阻塞等待确保 core_start 完成
+            tauri::async_runtime::block_on(async {
+                if let Err(e) = core_start(handle).await {
+                    eprintln!("Failed to start core: {}", e);
+                    return Err(e);
+                }
+                Ok(())
+            })?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![greet, core_start, core_input])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
