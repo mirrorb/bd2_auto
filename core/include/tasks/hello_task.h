@@ -14,7 +14,7 @@ private:
     std::atomic<bool> is_running_ {false};
     std::atomic<bool> stop_requested_ {false};
     std::thread task_thread_;
-    std::function<void(const json&)> progress_callback_;
+    std::function<void(const json&)> sender_;
     json current_task_status_json_;
 
     void run();

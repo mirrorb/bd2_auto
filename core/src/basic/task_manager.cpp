@@ -2,17 +2,17 @@
 #include "tasks/hello_task.h"
 // 如果有其他任务类型，也需要在这里包含
 
-TaskManager::TaskManager(std::function<void(const json&)> progress_callback)
-    : global_progress_callback_(std::move(progress_callback)) {}
+TaskManager::TaskManager(std::function<void(const json&)> sender)
+    : global_sender(std::move(sender)) {}
 
 bool TaskManager::startTask(const std::string& task_name, const json& params) {
     if (current_task_ && current_task_->isRunning()) {
-        if (global_progress_callback_) {
+        if (global_sender) {
             json error_msg;
             error_msg["type"] = "log";
             error_msg["level"] = "error";
             error_msg["message"] = "无法启动新任务 '" + task_name + "'，已有任务 '" + current_task_->getTaskName() + "' 正在运行。";
-            global_progress_callback_(error_msg);
+            global_sender(error_msg);
         }
         return false;
     }
@@ -26,18 +26,18 @@ bool TaskManager::startTask(const std::string& task_name, const json& params) {
     //     current_task_ = std::make_unique<AnotherSpecificTask>(task_name);
     // }
     else {
-        if (global_progress_callback_) {
+        if (global_sender) {
             json error_msg;
             error_msg["type"] = "log";
             error_msg["level"] = "error";
             error_msg["message"] = "未知的任务类型: " + task_name;
-            global_progress_callback_(error_msg);
+            global_sender(error_msg);
         }
         return false; // 未知任务类型，启动失败
     }
 
     // 将全局回调传递给任务，以便任务内部可以发送消息
-    current_task_->start(params, global_progress_callback_);
+    current_task_->start(params, global_sender);
     return true;
 }
 
@@ -45,21 +45,21 @@ bool TaskManager::stopCurrentTask() {
     if (current_task_ && current_task_->isRunning()) {
         current_task_->stop();
         // 发出stop请求
-        if (global_progress_callback_) {
+        if (global_sender) {
             json log_msg;
             log_msg["type"] = "log";
             log_msg["level"] = "info";
             log_msg["message"] = "已向任务 '" + current_task_->getTaskName() + "' 发送停止请求。";
-            global_progress_callback_(log_msg);
+            global_sender(log_msg);
         }
         return true;
     }
-    if (global_progress_callback_) {
+    if (global_sender) {
         json log_msg;
         log_msg["type"] = "log";
         log_msg["level"] = "info";
         log_msg["message"] = "没有正在运行的任务可以停止。";
-        global_progress_callback_(log_msg);
+        global_sender(log_msg);
     }
     return false;
 }
