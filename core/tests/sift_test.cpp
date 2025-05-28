@@ -8,7 +8,7 @@
 // --- 配置参数 ---
 const std::string SCENE_IMAGE_PATH = "game_screenshot.png"; // 游戏截图
 const std::string OBJECT_IMAGE_PATH = "element_template.png"; // 你要找的元素模板
-const int MIN_MATCH_COUNT = 5;        // 至少需要多少个好的匹配点才能认为找到了对象
+const int MIN_MATCH_COUNT = 4;        // 至少需要多少个好的匹配点才能认为找到了对象
 const float RATIO_TEST_THRESH = 0.75f; // Lowe's ratio test a (knnMatch)
 
 
@@ -84,28 +84,27 @@ int main() {
 
     std::vector<std::vector<cv::DMatch>> knn_matches;
     std::cout << "匹配特征点..." << std::endl;
-    // 使用 k-NN 匹配，k=2 表示为每个对象描述子找场景中最近的2个匹配
-    matcher->knnMatch(descriptors_object, descriptors_scene, knn_matches, 2);
+    // 使用 k-NN 匹配，k=1 表示为每个对象描述子只找场景中最近的1个匹配
+    matcher->knnMatch(descriptors_object, descriptors_scene, knn_matches, 1); // 注意这里 k 可以设置为 1
 
-    // --- 5. 应用 Lowe's Ratio Test 筛选好的匹配 ---
-    std::vector<cv::DMatch> good_matches;
+    // --- 5. 获取所有最佳匹配（不进行Lowe's Ratio Test） ---
+    std::vector<cv::DMatch> good_matches; // 重命名为 all_best_matches 或类似的可能更清晰，但沿用 good_matches 也可以
+
+    std::cout << "获取所有最佳匹配点..." << std::endl;
     for (size_t i = 0; i < knn_matches.size(); ++i) {
-        if (knn_matches[i].size() >= 2) { // 确保至少有两个匹配项
-             if (knn_matches[i][0].distance < RATIO_TEST_THRESH * knn_matches[i][1].distance) {
-                good_matches.push_back(knn_matches[i][0]);
-            }
-        } else if (knn_matches[i].size() == 1) { // 有时knnMatch只返回一个，如果距离够小也算
-            // 可以根据需要添加一个绝对距离阈值判断
+        if (!knn_matches[i].empty()) { // 确保至少有一个匹配项
+            good_matches.push_back(knn_matches[i][0]);
         }
     }
-    std::cout << "筛选后好的匹配点数: " << good_matches.size() << std::endl;
+    std::cout << "获取到的最佳匹配点数: " << good_matches.size() << std::endl;
 
-    // --- 6. 如果有足够多的好匹配，则计算单应性矩阵并绘制边界框 ---
+    // --- 6. 如果有足够多的匹配（这里可以根据您的需求调整 MIN_MATCH_COUNT 的意义）---
     cv::Mat img_matches; // 用于显示匹配结果的图像
     cv::Mat output_image = img_scene_bgr.clone();
 
+    // 即使没有Ratio Test，MIN_MATCH_COUNT 仍然可以用来判断是否有足够的点进行后续处理（如单应性矩阵）
     if (good_matches.size() >= MIN_MATCH_COUNT) {
-        std::cout << "找到足够多的匹配点，尝试定位对象..." << std::endl;
+        std::cout << "有足够多的匹配点 (" << good_matches.size() << ")，尝试定位对象..." << std::endl;
         std::vector<cv::Point2f> obj_pts;
         std::vector<cv::Point2f> scene_pts;
 
@@ -117,6 +116,7 @@ int main() {
 
         // 计算单应性矩阵 (Homography)
         // RANSAC 用于处理匹配中的一些外点 (outliers)
+        // 当匹配质量不高时（因为没有Ratio Test筛选），RANSAC的作用尤为重要
         cv::Mat H = cv::findHomography(obj_pts, scene_pts, cv::RANSAC, 5.0); // 5.0 是 RANSAC 的重投影误差阈值
 
         if (!H.empty()) {
