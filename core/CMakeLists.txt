@@ -81,3 +81,12 @@ target_link_libraries(${PROJECT_NAME}-${TARGET_TRIPLE} PRIVATE Threads::Threads)
 target_link_libraries(${PROJECT_NAME}-${TARGET_TRIPLE} PRIVATE ${OpenCV_LIBS})
 
 set(EXECUTABLE_OUTPUT_PATH ../bin)
+
+
+# 测试部分
+enable_testing()
+
+add_executable(test_temp tests/sift_test.cpp)
+target_link_libraries(test_temp PRIVATE ${OpenCV_LIBS})
+
+add_test(NAME test_temp COMMAND test_temp)
