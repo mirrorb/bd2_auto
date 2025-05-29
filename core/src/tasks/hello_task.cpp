@@ -1,5 +1,5 @@
 #include "tasks/hello_task.h"
-#include <opencv2/opencv.hpp> 
+#include <opencv2/opencv.hpp>
 
 HelloTask::HelloTask(std::string name) : task_name_(std::move(name)) {
     current_task_status_json_["task_name"] = task_name_; // 初始化状态JSON

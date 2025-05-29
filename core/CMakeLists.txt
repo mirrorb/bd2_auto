@@ -17,17 +17,14 @@ set(PLATFORM_ARCH "x86_64") # Common for both
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(PLATFORM_VENDOR "pc")
     set(PLATFORM_OS "windows")
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        set(PLATFORM_ENV "msvc")
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         set(PLATFORM_ENV "gnu")
     else()
-        message(WARNING "Unsupported C++ compiler on Windows for TARGET_TRIPLE: ${CMAKE_CXX_COMPILER_ID}. Defaulting to 'msvc'.")
-        set(PLATFORM_ENV "msvc")
+        message(FATAL_ERROR "Unsupported C++ compiler on Windows for TARGET_TRIPLE: ${CMAKE_CXX_COMPILER_ID}.")
     endif()
     set(TARGET_TRIPLE "${PLATFORM_ARCH}-${PLATFORM_VENDOR}-${PLATFORM_OS}-${PLATFORM_ENV}")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(PLATFORM_VENDOR "unknown")
+    set(PLATFORM_VENDOR "pc")
     set(PLATFORM_OS "linux")
     set(PLATFORM_ENV "gnu")
     set(TARGET_TRIPLE "${PLATFORM_ARCH}-${PLATFORM_VENDOR}-${PLATFORM_OS}-${PLATFORM_ENV}")
@@ -57,17 +54,16 @@ endif()
 include_directories(include)
 
 # 定义通用源文件
-set(COMMON_SOURCES
-    src/main.cpp
-    src/basic/service_app.cpp
-    src/basic/task_manager.cpp
-    src/basic/json_rpc_handler.cpp
-)
+set(ENTER_SOURCE src/main.cpp)
+file(GLOB COMMON_SOURCES CONFIGURE_DEPENDS "src/basic/*.cpp")
+file(GLOB CV_SOURCES CONFIGURE_DEPENDS "src/cv/*.cpp")
 file(GLOB TASK_SOURCES CONFIGURE_DEPENDS "src/tasks/*.cpp")
 
 # 合并所有源文件
 set(ALL_SOURCES
+    ${ENTER_SOURCE}
     ${COMMON_SOURCES}
+    ${CV_SOURCES}
     ${TASK_SOURCES}
 )
 
@@ -86,7 +82,10 @@ set(EXECUTABLE_OUTPUT_PATH ../bin)
 # 测试部分
 enable_testing()
 
-add_executable(test_temp tests/sift_test.cpp)
+add_executable(test_temp 
+    tests/sift_test.cpp
+    src/cv/point_matcher.cpp
+)
 target_link_libraries(test_temp PRIVATE ${OpenCV_LIBS})
 
 add_test(NAME test_temp COMMAND test_temp)
