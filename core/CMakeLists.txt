@@ -5,27 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(TARGET_TRIPLE "")
-
-# 平台校验
-if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|x86_64)$")
-    message(FATAL_ERROR "This CMake script is configured for x64 targets only. Current processor: ${CMAKE_SYSTEM_PROCESSOR}")
-endif()
-set(PLATFORM_ARCH "x86_64") # Common for both
-
 # 输出目标平台
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(PLATFORM_VENDOR "pc")
-    set(PLATFORM_OS "windows")
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        set(PLATFORM_ENV "msvc")
-    else()
-        message(FATAL_ERROR "Unsupported C++ compiler. Please use MSVC.")
-    endif()
-    set(TARGET_TRIPLE "${PLATFORM_ARCH}-${PLATFORM_VENDOR}-${PLATFORM_OS}-${PLATFORM_ENV}")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|x86_64)$")
+    set(TARGET_TRIPLE "x86_64-pc-windows-msvc")
 else()
-    message(FATAL_ERROR "Unsupported CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}. Only Windows MSVC configured.")
+    message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_CXX_COMPILER_ID}.")
 endif()
+
 
 if(MSVC)
     add_compile_options(/utf-8)

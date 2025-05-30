@@ -1,0 +1,48 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "debug",
+            "displayName": "Debug Config",
+            "description": "Debug 构建配置",
+            "generator": "Visual Studio 17 2022",
+            "binaryDir": "${sourceDir}/build/debug",
+            
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDebug",
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "release",
+            "displayName": "Release Config",
+            "description": "Release 构建配置",
+            "generator": "Visual Studio 17 2022",
+            "binaryDir": "${sourceDir}/build/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded",
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "debug",
+            "displayName": "Debug Build",
+            "description": "Debug 构建",
+            "targets": ["bd2_auto_core-x86_64-pc-windows-msvc"]
+        },
+        {
+            "name": "release",
+            "configurePreset": "release",
+            "displayName": "Release Build",
+            "description": "Release 构建",
+            "targets": ["bd2_auto_core-x86_64-pc-windows-msvc"]
+        }
+    ]
+}

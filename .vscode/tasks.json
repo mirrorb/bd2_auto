@@ -6,10 +6,13 @@
             "type": "cmake",
             "command": "cleanRebuild",
             "targets": [
-                "all"
+                "bd2_auto_core-x86_64-pc-windows-msvc"
             ],
             "group": "build",
-            "problemMatcher": [],
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "preset": "debug",
             "detail": "CMake template build task"
         },
         {
