@@ -1,15 +1,15 @@
-#include <opencv2/opencv.hpp>
-#include <opencv2/features2d.hpp>
 #include <iostream>
 #include <vector>
 #include <string>
 
 #include "basic/charset.hpp"
 #include "cv/point_matcher.h"
-#define SHOW_IMAGE
+
+#include <opencv2/core/utils/logger.hpp>
 
 int main() {
     initialize_console_for_utf8();
+    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_WARNING);
 
     const std::string SCENE_IMAGE_PATH = "game_screenshot.png";
     const std::string OBJECT_IMAGE_PATH = "element_template.png";
@@ -27,7 +27,7 @@ int main() {
         std::cerr << "错误: 无法加载对象图片 '" << OBJECT_IMAGE_PATH << "'" << std::endl;
         return -1;
     }
-    PointMatcher matcher {5.0, 1.5, 0.2};
+    PointMatcher matcher {5.0, 1.5f, 0.2f};
     std::vector<cv::Point2f> points = matcher.get_points(img_scene_bgr, img_object_bgr);
     for (const auto& p : points) {
         std::cout << "(" << int(p.x) << ", " << int(p.y) << ")" << std::endl;

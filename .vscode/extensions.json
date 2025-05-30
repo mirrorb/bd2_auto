@@ -4,7 +4,8 @@
     "tauri-apps.tauri-vscode",
     "rust-lang.rust-analyzer",
     "vadimcn.vscode-lldb",
-    "llvm-vs-code-extensions.vscode-clangd",
-    "ms-vscode.cmake-tools"
+    "ms-vscode.cpptools",
+    "ms-vscode.cmake-tools",
+    "augustocdias.tasks-shell-input"
   ]
 }

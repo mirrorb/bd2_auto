@@ -1,7 +1,8 @@
 #include "cv/point_matcher.h"
 #include <random>
 
-#define SHOW_IMAGE
+#define SHOW_LINES
+#define SHOW_POINTS
 
 PointMatcher::PointMatcher(double ransac_reproj_thresh, float match_distance_multiplier, float cluster_radius_factor): 
     ransac_reproj_thresh(ransac_reproj_thresh),
@@ -82,6 +83,21 @@ std::vector<cv::Point2f> PointMatcher::get_points(const cv::Mat &scene_image, co
 
     // 使用good_matches替代后续的k1_matches
     k1_matches = good_matches;
+    // 绘制匹配连线
+#ifdef SHOW_LINES
+    cv::Mat img_matches;
+    cv::drawMatches(object_image, keypoints_object, 
+                    scene_image, keypoints_scene,
+                    good_matches, img_matches, 
+                    cv::Scalar::all(-1),    // 匹配线颜色，-1表示随机颜色
+                    cv::Scalar::all(-1),    // 单点颜色
+                    std::vector<char>(),    // mask
+                    cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS |  // 不绘制单个点
+                    cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);     // 绘制关键点的大小和方向
+    
+    cv::imshow("Keypoint Matches", img_matches);
+    cv::waitKey(1);  // 显示1ms，不阻塞
+#endif
 
     // 聚类匹配点并为每个聚类寻找对象
     int detected_objects_count = 0; 
@@ -215,7 +231,7 @@ std::vector<cv::Point2f> PointMatcher::get_points(const cv::Mat &scene_image, co
              }
         }
     }
-#ifdef SHOW_IMAGE
+#ifdef SHOW_POINTS
     cv::Mat img_scene_bgr_copy = scene_image.clone();
     for (const auto& p : representative_points_all_clusters) {
         cv::circle(img_scene_bgr_copy, p, 5, cv::Scalar(0, 0, 255), -1); // Orange

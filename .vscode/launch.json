@@ -11,16 +11,28 @@
         },
         {
             "name": "Attach to C++ Backend",
-            "type": "lldb",
+            "type": "cppvsdbg",
             "request": "attach",
-            "program": "${workspaceFolder}/gui/src-tauri/target/debug/bd2_auto_core",
+            "processId": "${input:FindBd2AutoCorePID}"
         },
         {
             "name": "Debug Test",
-            "type": "lldb",
+            "type": "cppvsdbg",
             "request": "launch",
             "cwd": "${workspaceFolder}/bin",
             "program": "${workspaceFolder}/bin/test_temp"
+        }
+    ],
+    "inputs": [
+        {
+          "id": "FindBd2AutoCorePID",
+          "type": "command",
+          "command": "shellCommand.execute",
+          "args": {
+            "command": "powershell -Command \"$timeoutSeconds = 5; $startTime = Get-Date; $processId = $null; while (-not $processId -and ((Get-Date) - $startTime).TotalSeconds -lt $timeoutSeconds) { $process = Get-Process -Name 'bd2_auto_core' -ErrorAction SilentlyContinue; if ($process) { $processId = $process[0].Id; break; } Start-Sleep -Milliseconds 200; } if ($processId) { Write-Output $processId; }\"",
+            "description": "Find bd2_auto_core PID (retries for 5s)",
+            "useFirstResult": true,
+          }
         }
     ],
     "compounds": [
