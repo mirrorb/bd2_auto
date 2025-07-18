@@ -1,14 +1,15 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <windows.h>
 
-#include "basic/charset.hpp"
 #include "cv/point_matcher.h"
 
 #include <opencv2/core/utils/logger.hpp>
 
 int main() {
-    initialize_console_for_utf8();
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
     cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_WARNING);
 
     const std::string SCENE_IMAGE_PATH = "game_screenshot.png";

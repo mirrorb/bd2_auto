@@ -1,102 +1,64 @@
 #include "tasks/hello_task.h"
+#include <chrono>
 #include <opencv2/opencv.hpp>
+#include "io/window_handler.h"
+#include "io/screenshot.h"
+#include "meta/generated_ui_layout.h"
+#include "automator/ui_automator.h"
 
-HelloTask::HelloTask(std::string name) : task_name_(std::move(name)) {
-    current_task_status_json_["task_name"] = task_name_; // 初始化状态JSON
-    current_task_status_json_["status_detail"] = "未开始";
+HelloTask::HelloTask(std::string name)
+    : ThreadedTask(std::move(name)) 
+{
+    // 在构造函数中声明式地定义工作流
+    registerStep(SETUP_WINDOW,      std::bind(&HelloTask::step_setupWindow, this));
+    registerStep(SHOT,              std::bind(&HelloTask::step_shot,        this));
+    registerStep(SHOW_IMAGE,        std::bind(&HelloTask::step_showImage,   this));
+    registerStep(WAIT_A_BIT,        std::bind(&HelloTask::step_waitABit,    this));
+    registerStep(CLEANUP_RESOURCES, std::bind(&HelloTask::step_cleanup,     this));
 }
 
-HelloTask::~HelloTask() {
-    stop(); // 请求停止任务
-    if (task_thread_.joinable()) {
-        task_thread_.join(); // 等待任务线程结束
-    }
+bool HelloTask::step_setupWindow() {
+    logger_->info("[Step] 设置游戏窗口...");
+    WindowHandler::reset_game_window(1280, 720, 0, 0);
+    return true;
 }
 
-std::string HelloTask::getTaskName() const {
-    return task_name_;
+bool HelloTask::step_shot() {
+    logger_->info("[Step] 截取游戏窗口...");
+    cv::Mat screen = Screenshot::capture();
+    bool success = UIAutomator::try_click(screen, UIElements::UI_DING_YUE);
+    // cv::imshow("ScreenShot", screen);
+    // cv::waitKey(0);
+    return true;
 }
 
-bool HelloTask::isRunning() const {
-    return is_running_.load(); // 原子操作读取
+bool HelloTask::step_showImage() {
+    // logger_->info("[Step] 创建并显示图像...");
+    // cv::Mat black_image = cv::Mat::zeros(cv::Size(400, 300), CV_8UC3);
+    // if (black_image.empty()) {
+    //     logger_->error("无法创建黑色图像");
+    //     return false;
+    // }
+    // cv::putText(black_image, "Workflow OK!", cv::Point(50, 150),
+    //             cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0, 255, 255), 2);
+    // cv::imshow("Workflow Test", black_image);
+    // cv::waitKey(0);
+    return true;
 }
 
-json HelloTask::getStatus() const {
-    json status;
-    status["task_name"] = task_name_;
-    status["is_running"] = is_running_.load();
-    status["params"] = params_; // 可以选择性地返回任务启动参数
-    status["details"] = current_task_status_json_; // 返回内部维护的状态
-    return status;
+bool HelloTask::step_waitABit() {
+    // logger_->info("[Step] 模拟长时间工作 (5s)...");
+    // for(int i = 0; i < 5; ++i) {
+    //     if (stop_requested_.load()) return false; 
+    //     std::this_thread::sleep_for(std::chrono::seconds(1));
+    //     logger_->info("...工作中 " + std::to_string(i+1) + "/5 ...");
+    //     cv::waitKey(1); // 保持窗口响应
+    // }
+    return true;
 }
 
-void HelloTask::start(const json& params, std::function<void(const json&)> sender) {
-    if (is_running_.load()) {
-        if (sender) { // 检查回调是否有效
-            json error_msg;
-            error_msg["type"] = "log";
-            error_msg["level"] = "warn";
-            error_msg["message"] = "任务 '" + task_name_ + "' 已在运行中，无法重复启动。";
-            sender(error_msg);
-        }
-        return;
-    }
-    params_ = params; // 保存参数
-    sender_ = sender; // 保存回调
-    stop_requested_ = false; // 重置停止请求标志
-    is_running_ = true; // 设置运行状态
-    current_task_status_json_["status_detail"] = "正在初始化...";
-
-    // 创建并启动任务线程
-    task_thread_ = std::thread(&HelloTask::run, this);
-}
-
-void HelloTask::stop() {
-    stop_requested_ = true; // 设置停止请求标志
-    // 实际的停止发生在run()方法内部检查此标志
-    current_task_status_json_["status_detail"] = "正在请求停止...";
-    
-}
-
-// 任务线程的执行函数
-void HelloTask::run() {
-    current_task_status_json_["status_detail"] = "已启动";
-    sendProgressUpdate(0, "任务启动");
-
-    // 创建一个简单的黑色图像并显示它
-    cv::Mat black_image = cv::Mat::zeros(cv::Size(400, 300), CV_8UC3);
-    if (black_image.empty()) {
-        std::cerr << "错误: 无法创建黑色图像!" << std::endl;
-    }
-    cv::putText(black_image, "OpenCV OK!", cv::Point(50, 150), 
-                cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(0, 255, 0), 3);
-    cv::imshow("OpenCV Test", black_image);
-    cv::waitKey(0); // 等待按键
+bool HelloTask::step_cleanup() {
+    logger_->info("[Step] 清理资源...");
     cv::destroyAllWindows();
-
-    is_running_ = false; // 任务正常完成，更新运行状态
-    current_task_status_json_["status_detail"] = "已完成";
-    sendProgressUpdate(100, "任务完成");
-
-    // 任务完成后可以发送一个特定的完成事件
-    if (sender_) {
-        json completion_event;
-        completion_event["type"] = "event";
-        completion_event["event_name"] = "task_completed";
-        completion_event["task_name"] = task_name_;
-        completion_event["data"]["message"] = "任务 '" + task_name_ + "' 成功执行完毕。";
-        sender_(completion_event);
-    }
-}
-
-// 辅助函数，用于发送进度更新
-void HelloTask::sendProgressUpdate(int percentage, const std::string& step_message) {
-    if (sender_) {
-        json j_progress;
-        j_progress["type"] = "progress";
-        j_progress["task_name"] = task_name_;
-        j_progress["current_step"] = step_message;
-        j_progress["percentage"] = percentage;
-        sender_(j_progress);
-    }
+    return true;
 }

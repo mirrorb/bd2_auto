@@ -1,5 +1,4 @@
-#ifndef SERVICE_APP_H
-#define SERVICE_APP_H
+#pragma once
 
 #include "task_manager.h"
 #include <atomic>
@@ -16,5 +15,3 @@ public:
     ServiceApp();
     void run();
 };
-
-#endif // SERVICE_APP_H

@@ -33,7 +33,7 @@ async fn core_start(app: tauri::AppHandle) -> Result<(), String> {
         let process_state_arc = state_handle.inner().0.clone();
 
         loop {
-            let sidecar_command = match app_clone.shell().sidecar("bd2_auto_core") {
+            let sidecar_command = match app_clone.shell().sidecar("core/bd2_auto_core") {
                 Ok(cmd) => cmd,
                 Err(e) => {
                     let error_msg = format!("Failed to get sidecar command: {}", e);

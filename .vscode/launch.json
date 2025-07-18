@@ -21,6 +21,14 @@
             "request": "launch",
             "cwd": "${workspaceFolder}/bin",
             "program": "${workspaceFolder}/bin/test_temp"
+        },
+        {
+            "name": "Build App",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "Build Release & Package",
+            "program": "${workspaceFolder}/package.json",
+            "internalConsoleOptions": "neverOpen"
         }
     ],
     "inputs": [
@@ -42,7 +50,7 @@
             "Attach to C++ Backend",
             "Attach to Tauri Backend"
         ],
-        "preLaunchTask": "Build & Start Server",
+        "preLaunchTask": "Build Debug & Start Server",
         "default": true,
         "stopAll": true
     }

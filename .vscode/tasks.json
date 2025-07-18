@@ -2,18 +2,35 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "CMake Tools Build C++",
+            "label": "CMake Tools Build Debug C++",
             "type": "cmake",
             "command": "cleanRebuild",
-            "targets": [
-                "bd2_auto_core-x86_64-pc-windows-msvc"
-            ],
             "group": "build",
             "problemMatcher": [
                 "$msCompile"
             ],
             "preset": "debug",
             "detail": "CMake template build task"
+        },
+        {
+            "label": "CMake Tools Build Release C++",
+            "type": "cmake",
+            "command": "cleanRebuild",
+            "group": "build",
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "preset": "release",
+            "detail": "CMake template build task"
+        },
+        {
+            "label": "Package Tauri App",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "tauri", "build"],
+            "options": {
+                "cwd": "${workspaceFolder}/gui"
+            }
         },
         {
             "label": "Start Tauri Dev Server",
@@ -43,11 +60,20 @@
             }
         },
         {
-            "label": "Build & Start Server",
+            "label": "Build Debug & Start Server",
             "dependsOrder": "sequence",
             "dependsOn": [
-                "CMake Tools Build C++",
+                "CMake Tools Build Debug C++",
                 "Start Tauri Dev Server"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Build Release & Package",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "CMake Tools Build Release C++",
+                "Package Tauri App"
             ],
             "problemMatcher": []
         }

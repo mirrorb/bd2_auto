@@ -1,23 +1,21 @@
-#ifndef TASK_MANAGER_H
-#define TASK_MANAGER_H
+#pragma once
 
-#include "base_task.h"
 #include <memory>
-#include <string>
 #include <functional>
+#include "nlohmann/json.hpp"
+#include "basic/base_task.h"
+
+using json = nlohmann::json;
 
 class TaskManager {
 private:
-    std::unique_ptr<BaseTask> current_task_; // 当前活动的任务
-    std::function<void(const json&)> global_sender; // 用于任务向外发送消息的回调
+    std::unique_ptr<BaseTask> current_task_;
+    std::shared_ptr<Logger> logger_;
 
 public:
-    // 接收一个回调函数用于任务发送消息
     explicit TaskManager(std::function<void(const json&)> sender);
 
     bool startTask(const std::string& task_name, const json& params);
     bool stopCurrentTask();
     json getStatus() const;
 };
-
-#endif // TASK_MANAGER_H

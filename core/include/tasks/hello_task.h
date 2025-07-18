@@ -1,35 +1,26 @@
-#ifndef HELLO_TASK_H
-#define HELLO_TASK_H
+#pragma once
 
-#include "basic/base_task.h"
-#include <thread>
-#include <atomic>
-#include <string>
-#include <functional>
+#include "basic/threaded_task.h"
 
-class HelloTask : public BaseTask {
+class HelloTask : public ThreadedTask {
 private:
-    std::string task_name_;
-    json params_;
-    std::atomic<bool> is_running_ {false};
-    std::atomic<bool> stop_requested_ {false};
-    std::thread task_thread_;
-    std::function<void(const json&)> sender_;
-    json current_task_status_json_;
+    // 使用 enum class 定义步骤
+    enum HelloTaskSteps : StepId {
+        SETUP_WINDOW,
+        SHOT,
+        SHOW_IMAGE,
+        WAIT_A_BIT,
+        CLEANUP_RESOURCES
+    };
 
-    void run();
-    void sendProgressUpdate(int percentage, const std::string& step_message);
+    // 每个步骤的具体实现
+    bool step_setupWindow();
+    bool step_shot();
+    bool step_showImage();
+    bool step_waitABit();
+    bool step_cleanup();
 
 public:
-
     explicit HelloTask(std::string name);
-    ~HelloTask() override;
-
-    std::string getTaskName() const override;
-    bool isRunning() const override;
-    json getStatus() const override;
-    void start(const json& params, std::function<void(const json&)> progress_callback) override;
-    void stop() override;
+    ~HelloTask() override = default;
 };
-
-#endif // HELLO_TASK_H
