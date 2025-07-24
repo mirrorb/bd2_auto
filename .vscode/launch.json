@@ -19,8 +19,8 @@
             "name": "Debug Test",
             "type": "cppvsdbg",
             "request": "launch",
-            "cwd": "${workspaceFolder}/bin",
-            "program": "${workspaceFolder}/bin/test_temp"
+            "cwd": "${workspaceFolder}/core/build/debug/bin/test",
+            "program": "${workspaceFolder}/core/build/debug/bin/test/test_temp"
         },
         {
             "name": "Build App",

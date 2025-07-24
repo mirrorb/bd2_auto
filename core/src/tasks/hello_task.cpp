@@ -3,7 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include "io/window_handler.h"
 #include "io/screenshot.h"
-#include "meta/generated_ui_layout.h"
+#include "meta/generated_ui.h"
 #include "automator/ui_automator.h"
 
 HelloTask::HelloTask(std::string name)
@@ -26,7 +26,8 @@ bool HelloTask::step_setupWindow() {
 bool HelloTask::step_shot() {
     logger_->info("[Step] 截取游戏窗口...");
     cv::Mat screen = Screenshot::capture();
-    bool success = UIAutomator::try_click(screen, UIElements::UI_DING_YUE);
+    bool success = UIAutomator::verify_click(screen, UILayouts::UI_DING_YUE);
+    UIAutomator::drag(UILayouts::UI_RI_ZHI.location, UILayouts::UI_DING_YUE.location);
     // cv::imshow("ScreenShot", screen);
     // cv::waitKey(0);
     return true;

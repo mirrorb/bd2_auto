@@ -19,7 +19,7 @@ endif()
 # 线程库
 find_package(Threads REQUIRED)
 
-# OpenCV库 - 这次它会正确找到动态库
+# OpenCV库
 set(OpenCV_DIR "D:/opencv")
 find_package(OpenCV REQUIRED COMPONENTS core highgui imgproc calib3d videoio imgcodecs features2d flann)
 
@@ -51,7 +51,7 @@ set(UI_ELEMENT_GENERATOR ui_element_generator)
 add_executable(${UI_ELEMENT_GENERATOR} src/dev/ui_element_generator.cpp)
 target_include_directories(${UI_ELEMENT_GENERATOR} PRIVATE
     ${OpenCV_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/include # 也需要包含项目头文件
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(${UI_ELEMENT_GENERATOR} PRIVATE ${OpenCV_LIBS})
 set_target_properties(${UI_ELEMENT_GENERATOR}
