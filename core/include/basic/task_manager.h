@@ -18,4 +18,5 @@ public:
     bool startTask(const std::string& task_name, const json& params);
     bool stopCurrentTask();
     json getStatus() const;
+    json getTaskList() const;
 };

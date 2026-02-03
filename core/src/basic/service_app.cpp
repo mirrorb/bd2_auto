@@ -76,6 +76,10 @@ void ServiceApp::processCommand(const json& j_request) {
         json manager_status_report = task_manager_.getStatus();
         JsonRpc::sendSuccessResponse(j_request, manager_status_report);
 
+    } else if (method == "app/getTasks") {
+        json task_list = task_manager_.getTaskList();
+        JsonRpc::sendSuccessResponse(j_request, task_list);
+
     } else if (method == "app/shutdown") {
         JsonRpc::sendSuccessResponse(j_request, {{"message", "后端服务收到关闭请求，即将关闭。"}});
         shutdown_requested_ = true;

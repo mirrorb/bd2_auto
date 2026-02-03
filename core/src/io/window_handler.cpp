@@ -52,7 +52,22 @@ void WindowHandler::reset_game_window(int width, int height, int x, int y) {
     DWORD currentStyle = GetWindowLong(hwnd, GWL_STYLE);
     DWORD exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
 
-    if (!AdjustWindowRectEx(&windowRect, currentStyle, GetMenu(hwnd) != NULL, exStyle)) {
+    auto adjust_for_dpi = reinterpret_cast<BOOL (WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT)>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "AdjustWindowRectExForDpi")
+    );
+    auto get_dpi_for_window = reinterpret_cast<UINT (WINAPI*)(HWND)>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow")
+    );
+
+    BOOL adjusted = FALSE;
+    if (adjust_for_dpi) {
+        UINT dpi = get_dpi_for_window ? get_dpi_for_window(hwnd) : 96;
+        adjusted = adjust_for_dpi(&windowRect, currentStyle, GetMenu(hwnd) != NULL, exStyle, dpi);
+    } else {
+        adjusted = AdjustWindowRectEx(&windowRect, currentStyle, GetMenu(hwnd) != NULL, exStyle);
+    }
+
+    if (!adjusted) {
         DWORD errorCode = GetLastError(); // 获取详细的 WinAPI 错误码
         std::string errorMsg = "无法根据目标客户区计算窗口尺寸。WinAPI 错误码: " + std::to_string(errorCode);
 
@@ -83,6 +98,15 @@ void WindowHandler::reset_game_window(int width, int height, int x, int y) {
 
     // 将窗口带到前台并设置其位置和大小
     BringWindowToTop(hwnd);
+    SetWindowPos(
+        hwnd,
+        nullptr,
+        0,
+        0,
+        0,
+        0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED
+    );
     SetForegroundWindow(hwnd);
     // 移动和调整大小
     SetWindowPos(

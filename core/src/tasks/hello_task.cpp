@@ -1,5 +1,6 @@
 #include "tasks/hello_task.h"
 #include <chrono>
+#include <thread>
 #include <opencv2/opencv.hpp>
 #include "io/window_handler.h"
 #include "io/screenshot.h"
@@ -9,7 +10,7 @@
 HelloTask::HelloTask(std::string name)
     : ThreadedTask(std::move(name)) 
 {
-    // 在构造函数中声明式地定义工作流
+    // 定义该任务的工作流步骤
     registerStep(SETUP_WINDOW,      std::bind(&HelloTask::step_setupWindow, this));
     registerStep(SHOT,              std::bind(&HelloTask::step_shot,        this));
     registerStep(SHOW_IMAGE,        std::bind(&HelloTask::step_showImage,   this));
@@ -19,7 +20,12 @@ HelloTask::HelloTask(std::string name)
 
 bool HelloTask::step_setupWindow() {
     logger_->info("[Step] 设置游戏窗口...");
-    WindowHandler::reset_game_window(1280, 720, 0, 0);
+    const bool reset_window = params_.value("reset_window", true);
+    const int width = params_.value("window_width", 1280);
+    const int height = params_.value("window_height", 720);
+    if (reset_window) {
+        WindowHandler::reset_game_window(width, height, 0, 0);
+    }
     return true;
 }
 
@@ -34,7 +40,7 @@ bool HelloTask::step_shot() {
 }
 
 bool HelloTask::step_showImage() {
-    // logger_->info("[Step] 创建并显示图像...");
+    // logger_->info("[Step] 创建并显示测试图像...");
     // cv::Mat black_image = cv::Mat::zeros(cv::Size(400, 300), CV_8UC3);
     // if (black_image.empty()) {
     //     logger_->error("无法创建黑色图像");
@@ -48,13 +54,18 @@ bool HelloTask::step_showImage() {
 }
 
 bool HelloTask::step_waitABit() {
-    // logger_->info("[Step] 模拟长时间工作 (5s)...");
-    // for(int i = 0; i < 5; ++i) {
-    //     if (stop_requested_.load()) return false; 
-    //     std::this_thread::sleep_for(std::chrono::seconds(1));
-    //     logger_->info("...工作中 " + std::to_string(i+1) + "/5 ...");
-    //     cv::waitKey(1); // 保持窗口响应
-    // }
+    const int wait_seconds = params_.value("wait_seconds", 0);
+    if (wait_seconds <= 0) {
+        return true;
+    }
+    logger_->info("[Step] 模拟工作 (" + std::to_string(wait_seconds) + "s)...");
+    for (int i = 0; i < wait_seconds; ++i) {
+        if (stop_requested_.load()) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        cv::waitKey(1);
+    }
     return true;
 }
 
