@@ -8,7 +8,14 @@
     </div>
     <div class="titlebar-controls">
       <button class="titlebar-btn titlebar-theme" @click="emit('toggle-theme')" aria-label="切换主题">
-        <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></i>
+        <i
+          :class="[
+            'pi',
+            isDark ? 'pi-sun' : 'pi-moon',
+            'theme-icon',
+            isDark ? 'is-dark' : 'is-light',
+          ]"
+        ></i>
       </button>
       <button class="titlebar-btn titlebar-minimize" @click="emit('minimize')" aria-label="最小化">
         <i class="pi pi-minus"></i>
@@ -60,7 +67,6 @@ const onMouseDown = (event: MouseEvent) => {
   height: 100%;
   display: flex;
   align-items: center;
-  cursor: move; /* 显示可拖动的光标 */
 }
 
 .titlebar-left {
@@ -69,7 +75,6 @@ const onMouseDown = (event: MouseEvent) => {
   gap: 10px;
   padding: 0 16px;
   height: 100%;
-  cursor: move; /* 显示可拖动的光标 */
 }
 
 .app-icon {
@@ -90,7 +95,6 @@ const onMouseDown = (event: MouseEvent) => {
   display: flex;
   height: 100%;
   flex-shrink: 0;
-  cursor: move; /* 按钮之间的间隙也可以拖动 */
   -webkit-app-region: no-drag;
 }
 
@@ -119,6 +123,24 @@ const onMouseDown = (event: MouseEvent) => {
   background: var(--surface-200);
 }
 
+.theme-icon {
+  --rotation: 0deg;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  transform: rotate(var(--rotation));
+}
+
+.theme-icon.is-dark {
+  --rotation: 180deg;
+}
+
+.titlebar-theme:hover .theme-icon {
+  transform: rotate(var(--rotation)) scale(1.08);
+}
+
+.titlebar-theme:active .theme-icon {
+  transform: rotate(var(--rotation)) scale(0.95);
+}
+
 .titlebar-close:hover {
   background: #e81123;
   color: white;
@@ -130,12 +152,10 @@ const onMouseDown = (event: MouseEvent) => {
 }
 
 .titlebar-minimize:hover {
-  background: #e81123;
-  color: white;
+  background: var(--surface-hover);
 }
 
 .titlebar-minimize:active {
-  background: #c50f1f;
-  color: white;
+  background: var(--surface-200);
 }
 </style>
