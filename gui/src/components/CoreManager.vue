@@ -1,283 +1,59 @@
 ﻿<template>
-  <div class="app-layout">
-  <Toolbar class="topbar" data-tauri-drag-region>
-    <template #start>
-      <div class="brand" data-tauri-drag-region>
-        <span class="brand-mark">BD2 AUTO</span>
+  <div class="app-container">
+    <TitleBar
+      :isDark="theme === 'dark'"
+      @minimize="minimizeWindow"
+      @close="closeWindow"
+      @drag="handleTitlebarMouseDown"
+      @toggle-theme="toggleTheme"
+    />
+
+    <div class="main-content">
+      <div class="content-inner">
+        <div class="cards-grid">
+          <TaskControlCard
+            :tasks="tasks"
+            v-model:selectedTasks="selectedTasks"
+            :queuePreview="queuePreview"
+            :executionBusy="executionBusy"
+            @tasks-change="onTasksChanged"
+            @start-queue="startQueue"
+            @stop-task="stopTask"
+            @refresh-status="refreshStatus"
+          />
+
+          <TaskConfigCard
+            v-for="task in orderedConfigs"
+            :key="task"
+            :task="task"
+            v-model:fishingConfig="config"
+            v-model:helloConfig="helloConfig"
+          />
+
+          <StatusCard :isOnline="isOnline" :statusSummary="statusSummary" :lastEventText="lastEventText" />
+
+          <LogsCard
+            :entries="filteredLogs"
+            v-model:logLevelFilter="logLevelFilter"
+            :logLevelOptions="logLevelOptions"
+            @clear="clearLogs"
+          />
+        </div>
       </div>
-    </template>
-    <template #end>
-      <div class="window-controls" data-tauri-drag-region="false">
-        <Button
-          class="window-btn"
-          icon="pi pi-minus"
-          text
-          rounded
-          @click="minimizeWindow"
-          aria-label="最小化"
-        />
-        <Button
-          class="window-btn"
-          icon="pi pi-window-maximize"
-          text
-          rounded
-          @click="toggleMaximize"
-          aria-label="最大化"
-        />
-        <Button
-          class="window-btn close"
-          icon="pi pi-times"
-          text
-          rounded
-          severity="danger"
-          @click="closeWindow"
-          aria-label="关闭"
-        />
-      </div>
-    </template>
-  </Toolbar>
-
-  <div class="content-wrapper">
-    <ScrollPanel class="content-panel">
-      <section class="layout">
-      <Card class="card controls">
-        <template #title>
-          <span class="card-title">任务控制</span>
-        </template>
-        <template #content>
-          <div class="field">
-            <label>任务选择（可多选，按顺序执行）</label>
-            <div class="task-list">
-              <div class="task-item" v-for="task in tasks" :key="task.name">
-                <Checkbox
-                  :inputId="`task-${task.name}`"
-                  :value="task.name"
-                  v-model="selectedTasks"
-                  @change="onTasksChanged"
-                />
-                <label class="task-label" :for="`task-${task.name}`">{{ task.label }}</label>
-                <Tag v-if="task.queue?.must_last" value="队尾" severity="secondary" class="task-tag" />
-                <Tag v-if="task.queue?.is_looping" value="循环" severity="contrast" class="task-tag" />
-              </div>
-              <div v-if="tasks.length === 0" class="task-empty">等待任务列表...</div>
-            </div>
-          </div>
-          <div class="queue-tip" v-if="queuePreview.length">
-            当前队列：{{ queuePreview.join(' → ') }}
-          </div>
-          <div class="button-row">
-            <Button
-              :label="executionBusy ? '执行中...' : '开始执行'"
-              :loading="executionBusy"
-              @click="startQueue"
-            />
-            <Button label="停止当前任务" severity="secondary" outlined @click="stopTask" />
-            <Button label="刷新状态" severity="secondary" outlined @click="refreshStatus" />
-          </div>
-          <div class="helper">队列顺序和任务限制由后端配置驱动。</div>
-        </template>
-      </Card>
-
-      <Card v-for="task in orderedConfigs" :key="task" class="card config">
-        <template #title>
-          <span class="card-title" v-if="task === 'fishing_task'">钓鱼任务配置</span>
-          <span class="card-title" v-else-if="task === 'hello_task'">测试任务配置</span>
-        </template>
-        <template #content>
-          <template v-if="task === 'fishing_task'">
-            <div class="grid-2">
-              <div class="field">
-                <label>监控窗口名称</label>
-                <InputText v-model="config.monitorName" />
-              </div>
-              <div class="field">
-                <label>显示监控</label>
-                <div class="toggle">
-                  <InputSwitch id="show-monitor" v-model="config.showMonitor" />
-                  <label for="show-monitor">启用</label>
-                </div>
-              </div>
-            </div>
-
-            <Divider align="left">ROI</Divider>
-            <div class="grid-4">
-              <div class="field">
-                <label>RX</label>
-                <InputNumber v-model="config.roi.x" :step="0.001" :minFractionDigits="3" />
-              </div>
-              <div class="field">
-                <label>RY</label>
-                <InputNumber v-model="config.roi.y" :step="0.001" :minFractionDigits="3" />
-              </div>
-              <div class="field">
-                <label>RW</label>
-                <InputNumber v-model="config.roi.w" :step="0.001" :minFractionDigits="3" />
-              </div>
-              <div class="field">
-                <label>RH</label>
-                <InputNumber v-model="config.roi.h" :step="0.001" :minFractionDigits="3" />
-              </div>
-            </div>
-
-            <Divider align="left">节奏与补偿</Divider>
-            <div class="grid-3">
-              <div class="field">
-                <label>黄色补偿</label>
-                <InputNumber v-model="config.padding.yellow" />
-              </div>
-              <div class="field">
-                <label>蓝色补偿</label>
-                <InputNumber v-model="config.padding.blue" />
-              </div>
-              <div class="field">
-                <label>命中冷却(ms)</label>
-                <InputNumber v-model="config.hitCooldownMs" />
-              </div>
-              <div class="field">
-                <label>目标保持</label>
-                <InputNumber v-model="config.targetPersist" />
-              </div>
-              <div class="field">
-                <label>冻结间隔(ms)</label>
-                <InputNumber v-model="config.freezeIntervalMs" />
-              </div>
-            </div>
-          </template>
-
-          <template v-else-if="task === 'hello_task'">
-            <div class="grid-2">
-              <div class="field">
-                <label>重置窗口</label>
-                <div class="toggle">
-                  <InputSwitch id="reset-window" v-model="helloConfig.resetWindow" />
-                  <label for="reset-window">启用</label>
-                </div>
-              </div>
-              <div class="field">
-                <label>窗口宽度</label>
-                <InputNumber v-model="helloConfig.windowWidth" />
-              </div>
-              <div class="field">
-                <label>窗口高度</label>
-                <InputNumber v-model="helloConfig.windowHeight" />
-              </div>
-              <div class="field">
-                <label>等待秒数</label>
-                <InputNumber v-model="helloConfig.waitSeconds" />
-              </div>
-            </div>
-          </template>
-        </template>
-      </Card>
-
-      <Card class="card status">
-        <template #title>
-          <span class="card-title">核心状态</span>
-        </template>
-        <template #content>
-          <div class="status-grid">
-            <div>
-              <div class="label">核心连接</div>
-              <div class="value">
-                <Tag
-                  class="status-pill"
-                  :severity="isOnline ? 'success' : 'secondary'"
-                  :value="isOnline ? '已连接' : '等待核心响应...'"
-                />
-              </div>
-            </div>
-            <div>
-              <div class="label">当前任务</div>
-              <div class="value">{{ statusSummary.name || '-' }}</div>
-            </div>
-            <div>
-              <div class="label">状态</div>
-              <div class="value">{{ statusSummary.status || '-' }}</div>
-            </div>
-            <div>
-              <div class="label">进度</div>
-              <div class="value">{{ statusSummary.progress ?? '-' }}</div>
-            </div>
-            <div>
-              <div class="label">最近事件</div>
-              <div class="value">{{ lastEventText }}</div>
-            </div>
-          </div>
-        </template>
-      </Card>
-
-      <Card class="card logs">
-        <template #title>
-          <div class="logs-header">
-            <span class="card-title">实时日志</span>
-            <div class="logs-actions">
-              <Dropdown
-                v-model="logLevelFilter"
-                :options="logLevelOptions"
-                optionLabel="label"
-                optionValue="value"
-                placeholder="选择等级"
-              />
-              <Button label="清空" severity="secondary" outlined @click="clearLogs" />
-            </div>
-          </div>
-        </template>
-        <template #content>
-          <div class="log-list">
-            <div v-for="entry in filteredLogs" :key="entry.id" class="log-item" :class="entry.level">
-              <div class="log-meta">
-                <Tag :value="entry.level.toUpperCase()" :severity="logLevelSeverity(entry.level)" class="log-tag" />
-                <span class="time">{{ entry.time }}</span>
-                <span class="source">{{ entry.source }}</span>
-              </div>
-              <div class="log-message">{{ entry.message }}</div>
-              <pre v-if="entry.detail" class="log-detail">{{ entry.detail }}</pre>
-            </div>
-            <div v-if="filteredLogs.length === 0" class="empty">暂无日志。</div>
-          </div>
-        </template>
-      </Card>
-      </section>
-    </ScrollPanel>
+    </div>
   </div>
-</div>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import Button from 'primevue/button'
-import Card from 'primevue/card'
-import Checkbox from 'primevue/checkbox'
-import Divider from 'primevue/divider'
-import Dropdown from 'primevue/dropdown'
-import InputNumber from 'primevue/inputnumber'
-import InputSwitch from 'primevue/inputswitch'
-import InputText from 'primevue/inputtext'
-import Tag from 'primevue/tag'
-import Toolbar from 'primevue/toolbar'
-import ScrollPanel from 'primevue/scrollpanel'
-
-type LogEntry = {
-  id: number
-  time: string
-  level: 'info' | 'warn' | 'error'
-  message: string
-  detail?: string
-  source: string
-}
-
-type TaskMeta = {
-  name: string
-  label: string
-  queue?: {
-    singleton?: boolean
-    must_last?: boolean
-    is_looping?: boolean
-  }
-}
+import LogsCard from './core/LogsCard.vue'
+import StatusCard from './core/StatusCard.vue'
+import TaskConfigCard from './core/TaskConfigCard.vue'
+import TaskControlCard from './core/TaskControlCard.vue'
+import TitleBar from './core/TitleBar.vue'
+import type { FishingConfig, HelloConfig, LogEntry, StatusSummary, TaskMeta } from './core/types'
 
 const tasks = ref<TaskMeta[]>([])
 const selectedTasks = ref<string[]>(['fishing_task'])
@@ -285,7 +61,7 @@ const queue = ref<string[]>([])
 const queueRunning = ref(false)
 const poller = ref<number | null>(null)
 
-const config = ref({
+const config = ref<FishingConfig>({
   monitorName: 'BD2 Fisher',
   showMonitor: true,
   roi: { x: 0.395, y: 0.85, w: 0.253, h: 0.051 },
@@ -295,7 +71,7 @@ const config = ref({
   freezeIntervalMs: 120,
 })
 
-const helloConfig = ref({
+const helloConfig = ref<HelloConfig>({
   resetWindow: true,
   windowWidth: 1280,
   windowHeight: 720,
@@ -304,14 +80,14 @@ const helloConfig = ref({
 
 const logs = ref<LogEntry[]>([])
 const logLevelFilter = ref<'all' | 'info' | 'warn' | 'error'>('error')
-const logLevelOptions = [
+const logLevelOptions: Array<{ label: string; value: 'all' | 'info' | 'warn' | 'error' }> = [
   { label: '全部等级', value: 'all' },
   { label: '仅信息', value: 'info' },
   { label: '仅警告', value: 'warn' },
   { label: '仅错误', value: 'error' },
 ]
 
-const statusSummary = ref<{ name?: string; status?: string; progress?: number | string }>({})
+const statusSummary = ref<StatusSummary>({})
 const lastEventAt = ref<number | null>(null)
 
 let unlistenFns: UnlistenFn[] = []
@@ -320,6 +96,27 @@ let logId = 1
 
 const pendingRequests = new Map<number, string>()
 const appWindow = getCurrentWindow()
+
+const theme = ref<'light' | 'dark'>('light')
+
+const applyTheme = (value: 'light' | 'dark') => {
+  theme.value = value
+  document.documentElement.dataset.theme = value
+  localStorage.setItem('bd2-theme', value)
+}
+
+const initTheme = () => {
+  const saved = localStorage.getItem('bd2-theme')
+  if (saved === 'light' || saved === 'dark') {
+    applyTheme(saved)
+    return
+  }
+  applyTheme('dark')
+}
+
+const toggleTheme = () => {
+  applyTheme(theme.value === 'dark' ? 'light' : 'dark')
+}
 
 const isOnline = computed(() => lastEventAt.value !== null)
 const isTaskRunning = computed(() => statusSummary.value.status?.startsWith('running') ?? false)
@@ -331,12 +128,6 @@ const lastEventText = computed(() => {
   if (diff < 60000) return `${Math.floor(diff / 1000)} 秒前`
   return `${Math.floor(diff / 60000)} 分钟前`
 })
-
-const logLevelSeverity = (level: LogEntry['level']) => {
-  if (level === 'info') return 'info'
-  if (level === 'warn') return 'warning'
-  return 'danger'
-}
 
 const taskMap = computed(() => {
   const map = new Map<string, TaskMeta>()
@@ -487,24 +278,22 @@ const minimizeWindow = async () => {
   }
 }
 
-const toggleMaximize = async () => {
-  try {
-    const isMax = await appWindow.isMaximized()
-    if (isMax) {
-      await appWindow.unmaximize()
-    } else {
-      await appWindow.maximize()
-    }
-  } catch (err) {
-    pushLog('error', '窗口状态切换失败', err, 'ui')
-  }
-}
-
 const closeWindow = async () => {
   try {
     await appWindow.close()
   } catch (err) {
     pushLog('error', '关闭窗口失败', err, 'ui')
+  }
+}
+
+const handleTitlebarMouseDown = async (event: MouseEvent) => {
+  if (event.button !== 0) return
+  const target = event.target as HTMLElement | null
+  if (target?.closest('.titlebar-controls')) return
+  try {
+    await appWindow.startDragging()
+  } catch (err) {
+    pushLog('error', '拖动窗口失败', err, 'ui')
   }
 }
 
@@ -624,6 +413,7 @@ const eventHandler = async () => {
 }
 
 onMounted(() => {
+  initTheme()
   eventHandler()
   fetchTasks()
 })
@@ -635,150 +425,429 @@ onUnmounted(() => {
 })
 </script>
 
-<style>
+<style scoped>
+/* 主题背景变量（前端决定浅色/深色） */
 :global(:root) {
-  --topbar-height: 56px;
+  --app-bg: #e9edf2;
+  --app-surface: #ffffff;
+  --app-border: rgba(0, 0, 0, 0.26);
+  --app-accent: #2563eb;
+  --app-accent-contrast: #ffffff;
+  --control-bg: #ffffff;
+  --control-border: rgba(0, 0, 0, 0.16);
+  --control-text: #111827;
+  --control-hover: #f3f4f6;
+  --tag-secondary-bg: #eef1f5;
+  --tag-secondary-text: #4b5563;
+  --tag-contrast-bg: #111827;
+  --tag-contrast-text: #ffffff;
+  --surface-ground: var(--app-bg);
+  --surface-card: var(--app-surface);
+  --surface-border: var(--app-border);
+  --surface-50: #ffffff;
+  --surface-100: #f7f7f9;
+  --surface-200: #eef1f5;
+  --surface-400: #cbd5e1;
+  --surface-500: #94a3b8;
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --text-color: #111827;
+  --text-color-secondary: #6b7280;
+}
+
+:global(:root[data-theme='dark']) {
+  --app-bg: #0b0d11;
+  --app-surface: #171d24;
+  --app-border: rgba(255, 255, 255, 0.14);
+  --app-accent: #60a5fa;
+  --app-accent-contrast: #0b1220;
+  --control-bg: #1c2330;
+  --control-border: rgba(255, 255, 255, 0.14);
+  --control-text: #e5e7eb;
+  --control-hover: #2a3545;
+  --tag-secondary-bg: #1f2937;
+  --tag-secondary-text: #e2e8f0;
+  --tag-contrast-bg: var(--app-accent);
+  --tag-contrast-text: var(--app-accent-contrast);
+  --card-title-color: #f8fafc;
+  --card-title-muted: #d1d5db;
+  --surface-ground: var(--app-bg);
+  --surface-card: var(--app-surface);
+  --surface-border: var(--app-border);
+  --surface-50: #1b212a;
+  --surface-100: #202834;
+  --surface-200: #2a3442;
+  --surface-400: #3b495b;
+  --surface-500: #4e6076;
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --text-color: #e5e7eb;
+  --text-color-secondary: #cbd5e1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) {
+    --app-bg: #0b0d11;
+    --app-surface: #171d24;
+    --app-border: rgba(255, 255, 255, 0.14);
+    --app-accent: #60a5fa;
+    --app-accent-contrast: #0b1220;
+    --control-bg: #1c2330;
+    --control-border: rgba(255, 255, 255, 0.14);
+    --control-text: #e5e7eb;
+    --control-hover: #2a3545;
+    --tag-secondary-bg: #1f2937;
+    --tag-secondary-text: #e2e8f0;
+    --tag-contrast-bg: #2563eb;
+    --tag-contrast-text: #ffffff;
+    --surface-ground: var(--app-bg);
+    --surface-card: var(--app-surface);
+    --surface-border: var(--app-border);
+    --surface-50: #1b212a;
+    --surface-100: #202834;
+    --surface-200: #2a3442;
+    --surface-400: #3b495b;
+    --surface-500: #4e6076;
+    --surface-hover: rgba(255, 255, 255, 0.06);
+    --text-color: #e5e7eb;
+    --text-color-secondary: #cbd5e1;
+  }
 }
 
 :global(html),
 :global(body),
 :global(#app) {
-  height: 100%;
   width: 100%;
+  height: 100%;
+  background: var(--app-bg);
+  overflow: hidden;
+}
+
+/* 全局重置 */
+:deep(*) {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  overflow: hidden;
 }
 
-.app-layout {
-  position: relative;
-  height: 100%;
-  width: 100%;
+/* 应用容器 - 圆角内容壳体 */
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.topbar {
-  position: relative;
-  height: var(--topbar-height);
-  flex-shrink: 0;
-  -webkit-app-region: drag;
-  z-index: 1000;
-}
-
-.content-wrapper {
-  flex: 1;
   overflow: hidden;
-  position: relative;
+  background: var(--app-surface);
+  position: fixed;
+  inset: 0;
+  border-radius: 0;
+  border: 1px solid var(--app-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
-.content-panel {
-  height: 100%;
+:global(.p-card) {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.05), 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+:global(:root[data-theme='dark'] .p-card) {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+
+:global(:root[data-theme='dark'] .card-title) {
+  color: var(--card-title-color) !important;
+}
+
+:global(:root[data-theme='dark'] .status-label) {
+  color: var(--card-title-muted) !important;
+}
+
+:global(:root[data-theme='dark'] .p-inputtext),
+:global(:root[data-theme='dark'] .p-inputnumber-input),
+:global(:root[data-theme='dark'] .p-dropdown) {
+  background: var(--control-bg) !important;
+  border-color: var(--control-border) !important;
+  color: var(--control-text) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-label),
+:global(:root[data-theme='dark'] .p-dropdown-trigger) {
+  background: var(--control-bg) !important;
+  color: var(--control-text) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown) {
+  background: var(--control-bg) !important;
+  border-color: var(--control-border) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-panel) {
+  background: var(--control-bg) !important;
+  border-color: var(--control-border) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-item) {
+  color: var(--text-color);
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-item:not(.p-highlight):hover) {
+  background: var(--control-hover) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-item.p-highlight) {
+  background: var(--surface-200) !important;
+}
+
+:global(:root[data-theme='dark'] .p-select) {
+  background: var(--control-bg) !important;
+  border-color: var(--control-border) !important;
+  color: var(--control-text) !important;
+}
+
+:global(:root[data-theme='dark'] .p-select-label),
+:global(:root[data-theme='dark'] .p-select-dropdown),
+:global(:root[data-theme='dark'] .p-select-dropdown-icon),
+:global(:root[data-theme='dark'] .p-select-clear-icon) {
+  background: var(--control-bg) !important;
+  color: var(--control-text) !important;
+}
+
+:global(:root[data-theme='dark'] .p-select-overlay) {
+  background: var(--control-bg) !important;
+  border-color: var(--control-border) !important;
+}
+
+:global(:root[data-theme='dark'] .p-select-option) {
+  color: var(--text-color) !important;
+}
+
+:global(:root[data-theme='dark'] .p-select-option:not(.p-select-option-selected):hover),
+:global(:root[data-theme='dark'] .p-select-option.p-focus:not(.p-highlight)) {
+  background: var(--control-hover) !important;
+}
+
+:global(:root[data-theme='dark'] .p-select-option.p-select-option-selected),
+:global(:root[data-theme='dark'] .p-select-option.p-highlight),
+:global(:root[data-theme='dark'] .p-select-option[aria-selected='true']) {
+  background: var(--surface-200) !important;
+  color: var(--text-color) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-item) {
+  color: var(--text-color) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-item:not(.p-highlight):hover),
+:global(:root[data-theme='dark'] .p-dropdown-item.p-focus:not(.p-highlight)) {
+  background: var(--control-hover) !important;
+}
+
+:global(:root[data-theme='dark'] .p-dropdown-item.p-highlight),
+:global(:root[data-theme='dark'] .p-dropdown-item[aria-selected='true']) {
+  background: var(--surface-200) !important;
+  color: var(--text-color) !important;
+}
+
+:global(:root[data-theme='dark'] .p-button.p-button-outlined) {
+  border-color: var(--control-border) !important;
+  color: var(--text-color) !important;
+}
+
+:global(:root[data-theme='dark'] .p-button.p-button-outlined:hover) {
+  background: var(--control-hover) !important;
+}
+
+:global(:root[data-theme='dark'] .p-button.p-button-primary) {
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-button.p-button-primary .p-button-label),
+:global(:root[data-theme='dark'] .p-button.p-button-primary .p-button-icon) {
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link)) {
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link) .p-button-label),
+:global(:root[data-theme='dark'] .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-button-link) .p-button-icon) {
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-tag.p-tag-secondary),
+:global(:root[data-theme='dark'] .p-tag-secondary) {
+  background: var(--tag-secondary-bg) !important;
+  color: var(--tag-secondary-text) !important;
+}
+
+:global(:root[data-theme='dark'] .p-tag.p-tag-contrast),
+:global(:root[data-theme='dark'] .p-tag-contrast) {
+  background: var(--tag-contrast-bg) !important;
+  color: var(--tag-contrast-text) !important;
+}
+
+:global(.p-tag.p-tag-success),
+:global(.p-tag-success) {
+  background: var(--app-accent) !important;
+  border-color: var(--app-accent) !important;
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-checkbox .p-checkbox-box) {
+  background: var(--control-bg) !important;
+  border-color: var(--control-border) !important;
+}
+
+:global(:root[data-theme='dark'] .p-checkbox:not(.p-disabled) .p-checkbox-box:hover) {
+  border-color: var(--app-accent) !important;
+}
+
+:global(:root[data-theme='dark'] .p-checkbox-checked .p-checkbox-box) {
+  background: var(--app-accent) !important;
+  border-color: var(--app-accent) !important;
+}
+
+:global(:root[data-theme='dark'] .p-checkbox-checked .p-checkbox-icon) {
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-checkbox-checked:not(.p-disabled):has(.p-checkbox-input:hover) .p-checkbox-box) {
+  background: var(--app-accent) !important;
+  border-color: var(--app-accent) !important;
+}
+
+:global(:root[data-theme='dark'] .p-checkbox .p-checkbox-box.p-highlight) {
+  background: var(--app-accent) !important;
+  border-color: var(--app-accent) !important;
+}
+
+:global(:root[data-theme='dark'] .p-checkbox .p-checkbox-box.p-highlight .p-checkbox-icon) {
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-toggleswitch-slider) {
+  background: var(--control-bg) !important;
+  border-color: var(--control-border) !important;
+}
+
+:global(:root[data-theme='dark'] .p-toggleswitch-handle) {
+  background: var(--text-color) !important;
+  color: var(--app-accent-contrast) !important;
+}
+
+:global(:root[data-theme='dark'] .p-toggleswitch.p-toggleswitch-checked .p-toggleswitch-slider) {
+  background: var(--app-accent) !important;
+  border-color: var(--app-accent) !important;
+}
+
+:global(:root[data-theme='dark'] .p-toggleswitch.p-toggleswitch-checked .p-toggleswitch-handle) {
+  background: var(--app-accent-contrast) !important;
+  color: var(--app-accent) !important;
+}
+
+:global(:root[data-theme='dark'] .p-toggleswitch:not(.p-disabled):has(.p-toggleswitch-input:hover) .p-toggleswitch-slider) {
+  background: var(--control-hover) !important;
+  border-color: var(--control-border) !important;
+}
+
+:global(:root[data-theme='dark'] .p-toggleswitch:not(.p-disabled):has(.p-toggleswitch-input:hover) .p-toggleswitch-handle) {
+  background: var(--text-color) !important;
+}
+
+:global(:root[data-theme='dark'] .p-toggleswitch:not(.p-disabled):has(.p-toggleswitch-input:hover).p-toggleswitch-checked .p-toggleswitch-slider) {
+  background: var(--app-accent) !important;
+  border-color: var(--app-accent) !important;
+}
+
+/* ==================== 主内容区 - 可滚动 ==================== */
+.main-content {
+  flex: 1;
+  overflow-y: scroll; /* 改为 scroll 强制显示滚动条 */
+  overflow-x: hidden;
+  position: relative;
+  min-height: 0;
   width: 100%;
 }
 
-:global(.content-panel .p-scrollpanel-wrapper) {
-  height: 100%;
+/* 自定义原生滚动条样式 (Webkit) */
+.main-content::-webkit-scrollbar {
+  width: 10px;
 }
 
-:global(.content-panel .p-scrollpanel-content) {
-  padding: 0;
+.main-content::-webkit-scrollbar-track {
+  background: var(--surface-100);
+  border-radius: 5px;
+  margin: 4px 0;
 }
 
-.layout {
+.main-content::-webkit-scrollbar-thumb {
+  background: var(--surface-400);
+  border-radius: 5px;
+  border: 2px solid var(--surface-100);
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-500);
+}
+
+/* Firefox 滚动条样式 */
+.main-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-400) var(--surface-100);
+}
+
+.content-inner {
+  padding: 16px;
+}
+
+.cards-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  padding: 16px;
-  box-sizing: border-box;
+  min-width: 0;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* ==================== 卡片样式 ==================== */
+.logs-card {
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
-.task-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.control-card,
+.config-card,
+.status-card {
+  min-width: 0;
+  overflow: hidden;
 }
 
-.task-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+:deep(.card-title) {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color);
 }
 
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* 确保Card内容不溢出 */
+:deep(.p-card-body),
+:deep(.p-card-content) {
+  min-width: 0;
+  overflow: hidden;
 }
 
-.button-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.grid-4 {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.logs {
-  grid-column: span 2;
-}
-
-.logs-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.log-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.log-item {
-  padding: 8px 0;
-}
-
+/* ==================== 响应式 ==================== */
 @media (max-width: 960px) {
-  .layout {
+  .cards-grid {
     grid-template-columns: 1fr;
   }
 
-  .logs {
-    grid-column: span 1;
-  }
-
-  .grid-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .logs-card {
+    grid-column: 1;
   }
 }
 </style>
+
+
+
