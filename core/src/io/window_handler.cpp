@@ -118,6 +118,25 @@ void WindowHandler::reset_game_window(int width, int height, int x, int y) {
         finalWindowHeight, 
         SWP_SHOWWINDOW
     );
+    // 二次验证
+    RECT initialClientRect;
+    if (GetClientRect(hwnd, &initialClientRect)) {
+        const int clientWidth = initialClientRect.right - initialClientRect.left;
+        const int clientHeight = initialClientRect.bottom - initialClientRect.top;
+        const int deltaW = width - clientWidth;
+        const int deltaH = height - clientHeight;
+        if (deltaW != 0 || deltaH != 0) {
+            SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                x,
+                y,
+                finalWindowWidth + deltaW,
+                finalWindowHeight + deltaH,
+                SWP_SHOWWINDOW
+            );
+        }
+    }
     // 验证操作是否成功
     bool success = false;
     for (int i = 0; i < 10; ++i) { // 最多重试10次，总计500ms

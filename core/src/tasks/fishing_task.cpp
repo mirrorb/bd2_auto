@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <algorithm>
 #include <string>
+#include <thread>
+#include <chrono>
 #include <opencv2/opencv.hpp>
 #include "io/window_handler.h"
 #include "basic/exceptions.h"
@@ -122,14 +124,49 @@ bool FishingTask::step_runLoop() {
             continue;
         }
 
+        if (IsIconic(hwnd)) {
+            ShowWindow(hwnd, SW_RESTORE);
+        }
+        {
+            HWND foreground = GetForegroundWindow();
+            DWORD foregroundThreadId = GetWindowThreadProcessId(foreground, NULL);
+            DWORD targetThreadId = GetWindowThreadProcessId(hwnd, NULL);
+            if (foregroundThreadId != targetThreadId) {
+                AttachThreadInput(foregroundThreadId, targetThreadId, TRUE);
+            }
+            BringWindowToTop(hwnd);
+            SetForegroundWindow(hwnd);
+            if (foregroundThreadId != targetThreadId) {
+                AttachThreadInput(foregroundThreadId, targetThreadId, FALSE);
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
         RECT rc;
-        GetClientRect(hwnd, &rc);
+        if (!GetClientRect(hwnd, &rc)) {
+            last_x = -1;
+            lock_timer = 0;
+            Sleep(200);
+            continue;
+        }
         int win_w = rc.right - rc.left;
         int win_h = rc.bottom - rc.top;
+        if (win_w <= 0 || win_h <= 0) {
+            last_x = -1;
+            lock_timer = 0;
+            Sleep(200);
+            continue;
+        }
         int roi_w = static_cast<int>(win_w * config.rw);
         int roi_h = static_cast<int>(win_h * config.rh);
         int roi_x = static_cast<int>(win_w * config.rx);
         int roi_y = static_cast<int>(win_h * config.ry);
+        if (roi_w <= 0 || roi_h <= 0) {
+            last_x = -1;
+            lock_timer = 0;
+            Sleep(200);
+            continue;
+        }
         POINT pt = {0, 0};
         ClientToScreen(hwnd, &pt);
 
@@ -162,7 +199,12 @@ bool FishingTask::step_runLoop() {
 
         Mat raw(roi_h, roi_w, CV_8UC4);
         BITMAPINFOHEADER bi = {sizeof(BITMAPINFOHEADER), roi_w, -roi_h, 1, 32, BI_RGB};
-        GetDIBits(hdc_mem, h_bitmap, 0, roi_h, raw.data, reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
+        if (GetDIBits(hdc_mem, h_bitmap, 0, roi_h, raw.data, reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS) == 0 || raw.empty()) {
+            last_x = -1;
+            lock_timer = 0;
+            Sleep(50);
+            continue;
+        }
         Mat bar;
         Mat hsv;
         cvtColor(raw, bar, COLOR_BGRA2BGR);
@@ -170,7 +212,12 @@ bool FishingTask::step_runLoop() {
 
         Mat raw_ext(ext_h, roi_w, CV_8UC4);
         BITMAPINFOHEADER bi_e = {sizeof(BITMAPINFOHEADER), roi_w, -ext_h, 1, 32, BI_RGB};
-        GetDIBits(hdc_ext, h_bit_ext, 0, ext_h, raw_ext.data, reinterpret_cast<BITMAPINFO*>(&bi_e), DIB_RGB_COLORS);
+        if (GetDIBits(hdc_ext, h_bit_ext, 0, ext_h, raw_ext.data, reinterpret_cast<BITMAPINFO*>(&bi_e), DIB_RGB_COLORS) == 0 || raw_ext.empty()) {
+            last_x = -1;
+            lock_timer = 0;
+            Sleep(50);
+            continue;
+        }
         Mat bar_ext;
         Mat hsv_ext;
         cvtColor(raw_ext, bar_ext, COLOR_BGRA2BGR);
