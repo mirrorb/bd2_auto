@@ -62,7 +62,12 @@ void ServiceApp::processCommand(const json& j_request) {
         if (task_manager_.startTask(task_name, params)) {
             JsonRpc::sendSuccessResponse(j_request, {{"message", "任务 '" + task_name + "' 已成功请求启动。"}});
         } else {
-            JsonRpc::sendErrorResponse(j_request, "启动任务 '" + task_name + "' 失败 (可能已有任务在运行)。");
+            const std::string error_message = task_manager_.getLastError();
+            if (error_message.empty()) {
+                JsonRpc::sendErrorResponse(j_request, "启动任务 '" + task_name + "' 失败 (可能已有任务在运行)。");
+            } else {
+                JsonRpc::sendErrorResponse(j_request, error_message);
+            }
         }
 
     } else if (method == "task/stop") {

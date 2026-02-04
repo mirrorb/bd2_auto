@@ -1,23 +1,37 @@
 #include "basic/task_manager.h"
 #include "tasks/hello_task.h"
 #include "tasks/fishing_task.h"
+#include "io/window_handler.h"
+#include "basic/exceptions.h"
 
 TaskManager::TaskManager(std::function<void(const json&)> sender)
     : logger_(std::make_shared<Logger>(std::move(sender))) {}
 
 bool TaskManager::startTask(const std::string& task_name, const json& params) {
+    last_error_.clear();
     if (current_task_ && current_task_->isRunning()) {
-        logger_->error("Cannot start task '" + task_name + "': task '" + current_task_->getTaskName() + "' is running.");
+        last_error_ = "Cannot start task '" + task_name + "': task '" + current_task_->getTaskName() + "' is running.";
         return false;
     }
 
-    if (task_name == "hello_task") {
-        current_task_ = std::make_unique<HelloTask>(task_name);
-    } else if (task_name == "fishing_task") {
-        current_task_ = std::make_unique<FishingTask>(task_name);
-    } else {
-        logger_->error("Unknown task type: " + task_name);
+    const bool is_hello = (task_name == "hello_task");
+    const bool is_fishing = (task_name == "fishing_task");
+    if (!is_hello && !is_fishing) {
+        last_error_ = "Unknown task type: " + task_name;
         return false;
+    }
+
+    try {
+        WindowHandler::get_game_HWND();
+    } catch (const WindowException&) {
+        last_error_ = "未找到游戏窗口，请先打开游戏。";
+        return false;
+    }
+
+    if (is_hello) {
+        current_task_ = std::make_unique<HelloTask>(task_name);
+    } else {
+        current_task_ = std::make_unique<FishingTask>(task_name);
     }
 
     current_task_->start(params, logger_);
@@ -32,6 +46,10 @@ bool TaskManager::stopCurrentTask() {
     }
     logger_->info("No running task to stop.");
     return false;
+}
+
+std::string TaskManager::getLastError() const {
+    return last_error_;
 }
 
 json TaskManager::getStatus() const {
