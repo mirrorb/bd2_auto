@@ -14,7 +14,7 @@
           <div class="field">
             <label>显示监控</label>
             <div class="toggle">
-              <InputSwitch :id="`show-monitor-${task}`" v-model="fishingConfig.showMonitor" />
+              <ToggleSwitch :id="`show-monitor-${task}`" v-model="fishingConfig.showMonitor" />
               <label :for="`show-monitor-${task}`">启用</label>
             </div>
           </div>
@@ -70,7 +70,7 @@
           <div class="field">
             <label>重置窗口</label>
             <div class="toggle">
-              <InputSwitch :id="`reset-window-${task}`" v-model="helloConfig.resetWindow" />
+              <ToggleSwitch :id="`reset-window-${task}`" v-model="helloConfig.resetWindow" />
               <label :for="`reset-window-${task}`">启用</label>
             </div>
           </div>
@@ -96,7 +96,7 @@
 import Card from 'primevue/card'
 import Divider from 'primevue/divider'
 import InputNumber from 'primevue/inputnumber'
-import InputSwitch from 'primevue/inputswitch'
+import ToggleSwitch from 'primevue/toggleswitch'
 import InputText from 'primevue/inputtext'
 import type { FishingConfig, HelloConfig } from './types'
 

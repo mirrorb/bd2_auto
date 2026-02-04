@@ -3,7 +3,7 @@
 #include <basic/exceptions.h>
 
 ThreadedTask::ThreadedTask(std::string name) : task_name_(std::move(name)) {
-    updateStatus("idle", 0);
+    updateStatus("空闲", 0);
 }
 
 ThreadedTask::~ThreadedTask() {
@@ -66,7 +66,7 @@ void ThreadedTask::run() {
 
     if (workflow_sequence_.empty()) {
         logger_->warn("任务 '" + task_name_ + "' 没有定义任何工作步骤，直接结束。");
-        updateStatus("completed", 100);
+        updateStatus("已完成", 100);
         is_running_ = false;
         return;
     }
@@ -76,45 +76,45 @@ void ThreadedTask::run() {
         StepId current_step_id = workflow_sequence_[i];
 
         if (stop_requested_.load()) {
-            updateStatus("cancelled", static_cast<int>((i * 100.0) / total_steps));
+            updateStatus("已取消", static_cast<int>((i * 100.0) / total_steps));
             logger_->warn("任务在步骤 " + std::to_string(current_step_id) + " 前被取消。");
             goto cleanup_and_exit;
         }
 
-        std::string status_msg = "running: step " + std::to_string(current_step_id);
+        std::string status_msg = "运行中：步骤 " + std::to_string(current_step_id);
         updateStatus(status_msg, static_cast<int>((i * 100.0) / total_steps));
 
         auto it = step_actions_.find(current_step_id);
         if (it == step_actions_.end() || !(it->second)) {
-             logger_->error("步骤 " + std::to_string(current_step_id) + " 未实现！任务失败。");
-             updateStatus("failed");
-             goto cleanup_and_exit;
+            logger_->error("步骤 " + std::to_string(current_step_id) + " 未实现！任务失败。");
+            updateStatus("失败");
+            goto cleanup_and_exit;
         }
         // 执行步骤
         try {
             bool success = (it->second)();
             if (!success) {
                 logger_->error("步骤 " + std::to_string(current_step_id) + " 执行失败！任务终止。");
-                updateStatus("failed");
+                updateStatus("失败");
                 goto cleanup_and_exit;
             }
         } catch (const WindowException& e) {
             logger_->error("步骤 " + std::to_string(current_step_id) + ": " + e.what());
-            updateStatus("failed");
+            updateStatus("失败");
             goto cleanup_and_exit;
         } catch (const ScreenshotFailedException& e) {
             logger_->error("步骤 " + std::to_string(current_step_id) + ": " + e.what());
-            updateStatus("failed");
+            updateStatus("失败");
             goto cleanup_and_exit;
         } catch(const std::exception& e) {
             logger_->error("步骤 " + std::to_string(current_step_id) + " 发生未知错误。");
-            updateStatus("failed");
+            updateStatus("失败");
             goto cleanup_and_exit;
         }
 
     }
 
-    updateStatus("completed", 100);
+    updateStatus("已完成", 100);
     logger_->info("工作流 '" + task_name_ + "' 所有步骤执行完毕。");
 
 cleanup_and_exit:

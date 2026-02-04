@@ -19,7 +19,6 @@
             @tasks-change="onTasksChanged"
             @start-queue="startQueue"
             @stop-task="stopTask"
-            @refresh-status="refreshStatus"
           />
 
           <TaskConfigCard
@@ -62,7 +61,7 @@ const queueRunning = ref(false)
 const poller = ref<number | null>(null)
 
 const config = ref<FishingConfig>({
-  monitorName: 'BD2 Fisher',
+  monitorName: 'BD2 Fishing Monitor',
   showMonitor: true,
   roi: { x: 0.395, y: 0.85, w: 0.253, h: 0.051 },
   padding: { yellow: 12, blue: -2 },
@@ -89,6 +88,8 @@ const logLevelOptions: Array<{ label: string; value: 'all' | 'info' | 'warn' | '
 
 const statusSummary = ref<StatusSummary>({})
 const lastEventAt = ref<number | null>(null)
+const lastStatusAt = ref<number | null>(null)
+const clockTick = ref(Date.now())
 
 let unlistenFns: UnlistenFn[] = []
 let rpcId = 1
@@ -118,12 +119,15 @@ const toggleTheme = () => {
   applyTheme(theme.value === 'dark' ? 'light' : 'dark')
 }
 
-const isOnline = computed(() => lastEventAt.value !== null)
-const isTaskRunning = computed(() => statusSummary.value.status?.startsWith('running') ?? false)
+const isOnline = computed(() => {
+  if (lastStatusAt.value === null) return false
+  return clockTick.value - lastStatusAt.value < 3000
+})
+const isTaskRunning = computed(() => statusSummary.value.status?.startsWith('运行中') ?? false)
 const executionBusy = computed(() => queueRunning.value || isTaskRunning.value)
 const lastEventText = computed(() => {
   if (!lastEventAt.value) return '-'
-  const diff = Date.now() - lastEventAt.value
+  const diff = clockTick.value - lastEventAt.value
   if (diff < 2000) return '刚刚'
   if (diff < 60000) return `${Math.floor(diff / 1000)} 秒前`
   return `${Math.floor(diff / 60000)} 分钟前`
@@ -172,6 +176,55 @@ const onTasksChanged = () => {
   selectedTasks.value = normalizeTaskOrder(selectedTasks.value)
 }
 
+const formatSource = (source: string) => {
+  switch (source) {
+    case 'stdout':
+      return '标准输出'
+    case 'core-error':
+      return '核心错误'
+    case 'core-message':
+      return '核心消息'
+    case 'core-terminated':
+      return '核心退出'
+    case 'ui':
+      return '界面'
+    case 'log':
+      return '日志'
+    default:
+      return source
+  }
+}
+
+const formatLevel = (level: string) => {
+  switch (level) {
+    case 'info':
+      return '信息'
+    case 'warn':
+      return '警告'
+    case 'error':
+      return '错误'
+    default:
+      return level
+  }
+}
+
+const formatDetail = (detail: unknown) => {
+  if (!detail) return undefined
+  return JSON.stringify(
+    detail,
+    (key, value) => {
+      if (key === 'level' && typeof value === 'string') {
+        return formatLevel(value)
+      }
+      if (key === 'type' && typeof value === 'string') {
+        return formatSource(value)
+      }
+      return value
+    },
+    2
+  )
+}
+
 const pushLog = (level: LogEntry['level'], message: string, detail: unknown, source: string) => {
   const time = new Date().toLocaleTimeString()
   logs.value.unshift({
@@ -179,12 +232,22 @@ const pushLog = (level: LogEntry['level'], message: string, detail: unknown, sou
     time,
     level,
     message,
-    detail: detail ? JSON.stringify(detail, null, 2) : undefined,
-    source,
+    detail: formatDetail(detail),
+    source: formatSource(source),
   })
 }
 
 const handleRpcMessage = (payload: unknown, source: string) => {
+  if (source === 'core-terminated') {
+    lastEventAt.value = Date.now()
+    lastStatusAt.value = 0
+    statusSummary.value = {}
+    queueRunning.value = false
+    queue.value = []
+    pushLog('error', '后端已退出，任务已中止。', payload, source)
+    return
+  }
+
   lastEventAt.value = Date.now()
   let data: any = payload
   if (typeof payload === 'string') {
@@ -233,15 +296,11 @@ const handleRpcMessage = (payload: unknown, source: string) => {
       statusSummary.value = {}
     }
 
-    if (requestMethod === 'app/getStatus' && !queueRunning.value) {
-      if (
-        !statusSummary.value.name ||
-        statusSummary.value.status === 'completed' ||
-        statusSummary.value.status === 'failed'
-      ) {
-        stopPoller()
+    if (requestMethod === 'app/getStatus') {
+      lastStatusAt.value = Date.now()
+      if (!queueRunning.value) {
+        return
       }
-      return
     }
     pushLog('info', '收到响应', data.result, source)
     return
@@ -333,7 +392,6 @@ const stopTask = async () => {
     await sendRpc('task/stop', {})
     queueRunning.value = false
     queue.value = []
-    stopPoller()
   } catch (err) {
     pushLog('error', '发送停止请求失败', err, 'ui')
   }
@@ -369,19 +427,12 @@ const startQueue = async () => {
   queue.value = [...normalized]
   queueRunning.value = true
   await runNextTask()
-  if (!poller.value) {
-    poller.value = window.setInterval(() => {
-      refreshStatus()
-      checkQueueAdvance()
-    }, 1200)
-  }
 }
 
 const runNextTask = async () => {
   const next = queue.value.shift()
   if (!next) {
     queueRunning.value = false
-    stopPoller()
     pushLog('info', '任务队列执行完成', null, 'ui')
     return
   }
@@ -400,7 +451,7 @@ const checkQueueAdvance = () => {
     runNextTask()
     return
   }
-  if (statusSummary.value.status === 'completed' || statusSummary.value.status === 'failed') {
+  if (statusSummary.value.status === '已完成' || statusSummary.value.status === '失败') {
     runNextTask()
   }
 }
@@ -416,6 +467,13 @@ onMounted(() => {
   initTheme()
   eventHandler()
   fetchTasks()
+  if (!poller.value) {
+    poller.value = window.setInterval(() => {
+      clockTick.value = Date.now()
+      refreshStatus()
+      checkQueueAdvance()
+    }, 1000)
+  }
 })
 
 onUnmounted(() => {

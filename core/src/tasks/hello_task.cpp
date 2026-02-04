@@ -58,7 +58,7 @@ bool HelloTask::step_waitABit() {
     if (wait_seconds <= 0) {
         return true;
     }
-    logger_->info("[Step] 模拟工作 (" + std::to_string(wait_seconds) + "s)...");
+    logger_->info("[Step] 模拟工作 (" + std::to_string(wait_seconds) + "秒)...");
     for (int i = 0; i < wait_seconds; ++i) {
         if (stop_requested_.load()) {
             return false;

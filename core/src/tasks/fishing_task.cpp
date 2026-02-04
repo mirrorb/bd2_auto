@@ -11,7 +11,7 @@ using namespace cv;
 
 namespace {
 struct FishingConfig {
-    std::string monitor_name = "BD2 Fisher";
+    std::string monitor_name = "BD2 Fishing Monitor";
     bool show_monitor = true;
 
     double rx = 0.395;
@@ -107,7 +107,7 @@ bool FishingTask::step_runLoop() {
         namedWindow(config.monitor_name, WINDOW_AUTOSIZE);
     }
 
-    logger_->info("Fishing task started.");
+    logger_->info("钓鱼任务开始。");
 
     while (!stop_requested_.load()) {
         ULONGLONG now = GetTickCount64();
@@ -311,7 +311,7 @@ bool FishingTask::step_runLoop() {
                     flash_end = now + 150;
                     last_x = -1;
                     lock_timer = 0;
-                    logger_->info(is_blue_target ? "[BLUE HIT]" : "[YELLOW HIT]");
+                    logger_->info(is_blue_target ? "【蓝色命中】" : "【黄色命中】");
                 }
             }
 
@@ -368,6 +368,6 @@ bool FishingTask::step_runLoop() {
         DeleteObject(h_bit_ext);
     }
 
-    logger_->info("Fishing task stopped.");
+    logger_->info("钓鱼任务已停止。");
     return true;
 }

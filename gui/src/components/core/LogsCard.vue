@@ -4,7 +4,7 @@
       <div class="logs-header">
         <span class="card-title">实时日志</span>
         <div class="logs-actions">
-          <Dropdown
+          <Select
             v-model="logLevelFilter"
             :options="logLevelOptions"
             optionLabel="label"
@@ -19,7 +19,7 @@
       <div class="log-list">
         <div v-for="entry in entries" :key="entry.id" class="log-item" :class="entry.level">
           <div class="log-meta">
-            <Tag :value="entry.level.toUpperCase()" :severity="logLevelSeverity(entry.level)" />
+            <Tag :value="levelLabel(entry.level)" :severity="logLevelSeverity(entry.level)" />
             <span class="log-time">{{ entry.time }}</span>
             <span class="log-source">{{ entry.source }}</span>
           </div>
@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import Card from 'primevue/card'
-import Dropdown from 'primevue/dropdown'
+import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 import type { LogEntry } from './types'
 
@@ -57,6 +57,12 @@ const logLevelSeverity = (level: LogEntry['level']) => {
   if (level === 'warn') return 'warning'
   return 'danger'
 }
+
+const levelLabel = (level: LogEntry['level']) => {
+  if (level === 'info') return '信息'
+  if (level === 'warn') return '警告'
+  return '错误'
+}
 </script>
 
 <style scoped>
@@ -73,7 +79,7 @@ const logLevelSeverity = (level: LogEntry['level']) => {
   align-items: center;
 }
 
-.logs-actions :deep(.p-dropdown) {
+.logs-actions :deep(.p-select) {
   min-width: 0;
   width: 160px;
 }

@@ -13,41 +13,41 @@ const sidecarDestDir = path.join(projectRoot, 'gui', 'src-tauri', 'core');
 
 const mode = process.argv[2];
 if (!mode) {
-    console.error('[Sidecar Prep] FATAL ERROR: Build mode argument is missing.');
-    console.error('[Sidecar Prep] Expected command format: `tsx prepare-sidecar.ts [debug|release]`');
+    console.error('[Sidecar 准备] 严重错误：缺少构建模式参数。');
+    console.error('[Sidecar 准备] 预期命令格式：`tsx prepare-sidecar.ts [debug|release]`');
     process.exit(1);
 }
 if (mode !== 'debug' && mode !== 'release') {
-    console.error(`[Sidecar Prep] FATAL ERROR: Invalid build mode argument "${mode}".`);
-    console.error('[Sidecar Prep] Must be either "debug" or "release".');
+    console.error(`[Sidecar 准备] 严重错误：构建模式参数无效 "${mode}"。`);
+    console.error('[Sidecar 准备] 必须是 "debug" 或 "release"。');
     process.exit(1);
 }
 
 
 const sourceDir = path.join(cppBuildDir, mode, 'bin', 'core');
 
-console.log(`[Sidecar Prep] Starting preparation for ${mode} mode.`);
-console.log(`[Sidecar Prep] Project Root: ${projectRoot}`);
-console.log(`[Sidecar Prep] Source Path: ${sourceDir}`);
-console.log(`[Sidecar Prep] Destination Path: ${sidecarDestDir}`);
+console.log(`[Sidecar 准备] 开始准备 ${mode} 模式。`);
+console.log(`[Sidecar 准备] 项目根目录：${projectRoot}`);
+console.log(`[Sidecar 准备] 源路径：${sourceDir}`);
+console.log(`[Sidecar 准备] 目标路径：${sidecarDestDir}`);
 
 try {
     fs.emptyDirSync(sidecarDestDir);
-    console.log('[Sidecar Prep] Destination directory cleaned.');
+    console.log('[Sidecar 准备] 已清空目标目录。');
 
     if (!fs.existsSync(sourceDir)) {
-        console.error(`\n[Sidecar Prep] FATAL ERROR: Source directory not found!`);
-        console.error(`[Sidecar Prep] > Directory "${sourceDir}" does not exist.`);
-        console.error(`[Sidecar Prep] > Please make sure you have successfully compiled the C++ project in the 'core' directory first.\n`);
+        console.error(`\n[Sidecar 准备] 严重错误：未找到源目录！`);
+        console.error(`[Sidecar 准备] > 目录 "${sourceDir}" 不存在。`);
+        console.error(`[Sidecar 准备] > 请先确保已在 'core' 目录成功编译 C++ 项目。\n`);
         process.exit(1);
     }
 
     fs.copySync(sourceDir, sidecarDestDir);
-    console.log(`[Sidecar Prep] Successfully copied artifacts from ${path.basename(sourceDir)}.`);
+    console.log(`[Sidecar 准备] 已成功复制产物：${path.basename(sourceDir)}。`);
 
 } catch (error) {
-    console.error('[Sidecar Prep] An unexpected error occurred during file operations:', error);
+    console.error('[Sidecar 准备] 文件操作发生未知错误：', error);
     process.exit(1);
 }
 
-console.log('[Sidecar Prep] Preparation complete. Tauri may now proceed.');
+console.log('[Sidecar 准备] 准备完成，Tauri 可继续。');

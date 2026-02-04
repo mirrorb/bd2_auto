@@ -15,7 +15,7 @@ std::optional<json> JsonRpc::parseRequest(const std::string& line) {
         error_response["jsonrpc"] = "2.0";
         error_response["id"] = nullptr;
         error_response["error"]["code"] = -32700; // Parse error
-        error_response["error"]["message"] = "JSON parse error: " + line;
+        error_response["error"]["message"] = "JSON 解析错误：" + line;
         send(error_response);
         return std::nullopt;
     }
@@ -30,7 +30,7 @@ std::optional<json> JsonRpc::parseRequest(const std::string& line) {
             error_response["id"] = nullptr;
         }
         error_response["error"]["code"] = -32600; // Invalid Request
-        error_response["error"]["message"] = "Invalid JSON-RPC request object.";
+        error_response["error"]["message"] = "无效的 JSON-RPC 请求对象。";
         send(error_response);
         return std::nullopt;
     }

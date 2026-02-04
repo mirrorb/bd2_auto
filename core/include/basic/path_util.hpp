@@ -32,7 +32,7 @@ inline std::filesystem::path get_executable_directory() {
     // Windows 平台实现
     wchar_t path_buffer[MAX_PATH];
     if (GetModuleFileNameW(NULL, path_buffer, MAX_PATH) == 0) {
-        throw std::runtime_error("Fatal Error: GetModuleFileNameW failed.");
+        throw std::runtime_error("严重错误：GetModuleFileNameW 调用失败。");
     }
     return std::filesystem::path(path_buffer).parent_path();
 #elif __linux__
@@ -40,7 +40,7 @@ inline std::filesystem::path get_executable_directory() {
     char result[PATH_MAX];
     ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
     if (count < 0) {
-        throw std::runtime_error("Fatal Error: readlink /proc/self/exe failed.");
+        throw std::runtime_error("严重错误：readlink /proc/self/exe 调用失败。");
     }
     return std::filesystem::path(std::string(result, count)).parent_path();
 #elif __APPLE__
@@ -48,21 +48,21 @@ inline std::filesystem::path get_executable_directory() {
     uint32_t size = 0;
     _NSGetExecutablePath(nullptr, &size);
     if (size == 0) {
-        throw std::runtime_error("Fatal Error: _NSGetExecutablePath failed to get buffer size.");
+        throw std::runtime_error("严重错误：_NSGetExecutablePath 获取缓冲区大小失败。");
     }
     std::vector<char> path_buffer(size);
     if (_NSGetExecutablePath(path_buffer.data(), &size) != 0) {
-        throw std::runtime_error("Fatal Error: _NSGetExecutablePath failed.");
+        throw std::runtime_error("严重错误：_NSGetExecutablePath 调用失败。");
     }
     char* real_path = realpath(path_buffer.data(), NULL);
     if (!real_path) {
-        throw std::runtime_error("Fatal Error: realpath failed to resolve symlinks.");
+        throw std::runtime_error("严重错误：realpath 解析符号链接失败。");
     }
     std::filesystem::path p(real_path);
     free(real_path);
     return p.parent_path();
 #else
-    #error "Unsupported platform: cannot determine executable path."
+    #error "不支持的平台：无法确定可执行文件路径。"
 #endif
 }
 

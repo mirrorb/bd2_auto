@@ -33,7 +33,6 @@
           @click="emit('start-queue')"
         />
         <Button label="停止当前任务" severity="secondary" outlined @click="emit('stop-task')" />
-        <Button label="刷新状态" severity="secondary" outlined @click="emit('refresh-status')" />
       </div>
 
       <div class="helper">队列顺序和任务限制由后端配置驱动。</div>
@@ -60,7 +59,6 @@ const emit = defineEmits<{
   (event: 'tasks-change'): void
   (event: 'start-queue'): void
   (event: 'stop-task'): void
-  (event: 'refresh-status'): void
 }>()
 </script>
 

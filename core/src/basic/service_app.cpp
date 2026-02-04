@@ -55,7 +55,7 @@ void ServiceApp::processCommand(const json& j_request) {
     if (method == "task/start") {
         const std::string task_name = params.value("task_name", "");
         if (task_name.empty()) {
-            JsonRpc::sendErrorResponse(j_request, "START_TASK 命令缺少 'task_name' 参数。");
+            JsonRpc::sendErrorResponse(j_request, "启动任务命令缺少 'task_name' 参数。");
             return;
         }
 
