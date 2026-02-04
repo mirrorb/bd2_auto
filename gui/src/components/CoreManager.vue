@@ -16,7 +16,7 @@
             v-model:selectedTasks="selectedTasks"
             :queuePreview="queuePreview"
             :executionBusy="executionBusy"
-            :taskStatuses="taskStatuses"
+            :taskStatuses="selectedTaskStatuses"
             @tasks-change="onTasksChanged"
             @start-queue="startQueue"
             @stop-task="stopTask"
@@ -57,6 +57,7 @@ import type { FishingConfig, HelloConfig, LogEntry, StatusSummary, TaskMeta, Tas
 
 const tasks = ref<TaskMeta[]>([])
 const selectedTasks = ref<string[]>(['fishing_task'])
+const lastSelectedTasks = ref<string[]>(['fishing_task'])
 const queue = ref<string[]>([])
 const queueRunning = ref(false)
 const poller = ref<number | null>(null)
@@ -90,6 +91,9 @@ const logLevelOptions: Array<{ label: string; value: 'all' | 'info' | 'warn' | '
 const statusSummary = ref<StatusSummary>({})
 const taskStatuses = ref<Record<string, TaskStatusTag>>({})
 const lastActiveTask = ref<string | null>(null)
+const taskStartFailures = ref<Record<string, number>>({})
+const queueCurrentTask = ref<string | null>(null)
+const queueStartAt = ref<number | null>(null)
 const lastEventAt = ref<number | null>(null)
 const lastStatusAt = ref<number | null>(null)
 const clockTick = ref(Date.now())
@@ -171,13 +175,35 @@ const queuePreview = computed(() =>
 )
 
 const orderedConfigs = computed(() => normalizeTaskOrder(selectedTasks.value))
+const selectedTaskStatuses = computed(() => {
+  const next: Record<string, TaskStatusTag> = {}
+  for (const name of selectedTasks.value) {
+    const status = taskStatuses.value[name]
+    if (status) {
+      next[name] = status
+    }
+  }
+  return next
+})
 const filteredLogs = computed(() => {
   if (logLevelFilter.value === 'all') return logs.value
   return logs.value.filter((entry) => entry.level === logLevelFilter.value)
 })
 
 const onTasksChanged = () => {
+  if (executionBusy.value) {
+    selectedTasks.value = [...lastSelectedTasks.value]
+    pushLog('warn', '任务运行中，无法变更任务选择', null, 'ui')
+    return
+  }
   selectedTasks.value = normalizeTaskOrder(selectedTasks.value)
+  lastSelectedTasks.value = [...selectedTasks.value]
+  taskStatuses.value = {}
+  taskStartFailures.value = {}
+  lastActiveTask.value = null
+  for (const taskName of selectedTasks.value) {
+    taskStatuses.value[taskName] = buildStatusTag()
+  }
 }
 
 const formatSource = (source: string) => {
@@ -293,6 +319,8 @@ const handleRpcMessage = (payload: unknown, source: string) => {
     statusSummary.value = {}
     queueRunning.value = false
     queue.value = []
+    queueCurrentTask.value = null
+    queueStartAt.value = null
     if (lastActiveTask.value) {
       setTaskStatusTag(lastActiveTask.value, { label: '失败', severity: 'danger' })
     }
@@ -328,6 +356,12 @@ const handleRpcMessage = (payload: unknown, source: string) => {
   if (data?.error) {
     if (requestMethod === 'task/start' && requestTaskName) {
       setTaskStatusTag(requestTaskName, { label: '启动失败', severity: 'danger' })
+      taskStartFailures.value = { ...taskStartFailures.value, [requestTaskName]: Date.now() }
+      if (queueRunning.value && queueCurrentTask.value === requestTaskName) {
+        queueCurrentTask.value = null
+        queueStartAt.value = null
+        runNextTask()
+      }
     }
     pushLog('error', data.error.message ?? 'RPC 错误', data.error, source)
     return
@@ -336,6 +370,21 @@ const handleRpcMessage = (payload: unknown, source: string) => {
   if (data?.result) {
     if (requestMethod === 'task/start' && requestTaskName) {
       setTaskStatusTag(requestTaskName, { label: '运行中', severity: 'info' })
+      if (taskStartFailures.value[requestTaskName]) {
+        const { [requestTaskName]: _ignore, ...rest } = taskStartFailures.value
+        taskStartFailures.value = rest
+      }
+      if (queueRunning.value && queueCurrentTask.value === requestTaskName) {
+        statusSummary.value = {
+          name: requestTaskName,
+          status: '运行中',
+          progress: statusSummary.value.progress ?? 0,
+        }
+        lastActiveTask.value = requestTaskName
+        if (queueStartAt.value === null) {
+          queueStartAt.value = Date.now()
+        }
+      }
     }
     if (Array.isArray(data.result.tasks)) {
       tasks.value = data.result.tasks as TaskMeta[]
@@ -354,7 +403,12 @@ const handleRpcMessage = (payload: unknown, source: string) => {
         progress: data.result.active_task.progress,
       }
       lastActiveTask.value = data.result.active_task.name
-      setTaskStatus(data.result.active_task.name, data.result.active_task.status)
+      const activeName = data.result.active_task.name as string
+      const activeStatus = data.result.active_task.status as string | undefined
+      const hasStartFailure = Boolean(taskStartFailures.value[activeName])
+      if (!hasStartFailure || activeStatus?.startsWith('运行中')) {
+        setTaskStatus(activeName, activeStatus)
+      }
     } else {
       statusSummary.value = {}
     }
@@ -459,6 +513,8 @@ const stopTask = async () => {
     await sendRpc('task/stop', {})
     queueRunning.value = false
     queue.value = []
+    queueCurrentTask.value = null
+    queueStartAt.value = null
   } catch (err) {
     pushLog('error', '发送停止请求失败', err, 'ui')
   }
@@ -493,6 +549,8 @@ const startQueue = async () => {
   selectedTasks.value = normalized
   queue.value = [...normalized]
   queueRunning.value = true
+  queueCurrentTask.value = null
+  queueStartAt.value = null
   await runNextTask()
 }
 
@@ -500,27 +558,47 @@ const runNextTask = async () => {
   const next = queue.value.shift()
   if (!next) {
     queueRunning.value = false
+    queueCurrentTask.value = null
+    queueStartAt.value = null
     pushLog('info', '任务队列执行完成', null, 'ui')
     return
   }
   try {
+    queueCurrentTask.value = next
+    queueStartAt.value = Date.now()
     await startTask(next)
     pushLog('info', `开始执行任务：${next}`, null, 'ui')
   } catch (err) {
     pushLog('error', `启动任务失败：${next}`, err, 'ui')
+    queueCurrentTask.value = null
+    queueStartAt.value = null
     await runNextTask()
   }
 }
 
 const checkQueueAdvance = () => {
   if (!queueRunning.value) return
-  if (!statusSummary.value.name) {
+  if (!queueCurrentTask.value) {
     runNextTask()
     return
   }
-  if (statusSummary.value.status === '已完成' || statusSummary.value.status === '失败') {
-    runNextTask()
+  if (statusSummary.value.name) {
+    if (statusSummary.value.name !== queueCurrentTask.value) {
+      return
+    }
+    if (statusSummary.value.status === '已完成' || statusSummary.value.status === '失败' || statusSummary.value.status === '已取消') {
+      queueCurrentTask.value = null
+      queueStartAt.value = null
+      runNextTask()
+    }
+    return
   }
+  if (queueStartAt.value !== null && Date.now() - queueStartAt.value < 2000) {
+    return
+  }
+  queueCurrentTask.value = null
+  queueStartAt.value = null
+  runNextTask()
 }
 
 const eventHandler = async () => {
