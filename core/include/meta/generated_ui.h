@@ -13,20 +13,6 @@ struct Metadata {
 };
 
 
-// DING_YUE
-inline const Metadata UI_DING_YUE = {
-    "DING_YUE",
-    "DING_YUE.png",
-    cv::Rect(18, 201, 142, 34)
-};
-
-// RI_ZHI
-inline const Metadata UI_RI_ZHI = {
-    "RI_ZHI",
-    "RI_ZHI.png",
-    cv::Rect(12, 368, 177, 38)
-};
-
 } // namespace UILayouts
 
 namespace UITemplates {
@@ -38,11 +24,5 @@ struct Metadata {
     const char* filename;
 };
 
-
-// MERGE_BUTTOM
-inline const Metadata UI_MERGE_BUTTOM = {
-    "MERGE_BUTTOM",
-    "MERGE_BUTTOM.png"
-};
 
 } // namespace UITemplates

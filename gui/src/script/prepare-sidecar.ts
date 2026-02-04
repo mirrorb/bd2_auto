@@ -10,6 +10,7 @@ const projectRoot = path.resolve(__dirname, '..', '..', '..');
 const cppBuildDir = path.join(projectRoot, 'core', 'build');
 
 const sidecarDestDir = path.join(projectRoot, 'gui', 'src-tauri', 'core');
+const tauriReleaseCoreDir = path.join(projectRoot, 'gui', 'src-tauri', 'target', 'release', 'core');
 
 const mode = process.argv[2];
 if (!mode) {
@@ -32,8 +33,16 @@ console.log(`[Sidecar 准备] 源路径：${sourceDir}`);
 console.log(`[Sidecar 准备] 目标路径：${sidecarDestDir}`);
 
 try {
-    fs.emptyDirSync(sidecarDestDir);
-    console.log('[Sidecar 准备] 已清空目标目录。');
+    if (fs.existsSync(sidecarDestDir)) {
+        fs.removeSync(sidecarDestDir);
+    }
+    fs.ensureDirSync(sidecarDestDir);
+    console.log('[Sidecar 准备] 已清空并重新创建目标目录。');
+
+    if (fs.existsSync(tauriReleaseCoreDir)) {
+        fs.removeSync(tauriReleaseCoreDir);
+        console.log('[Sidecar 准备] 已清空 Tauri release/core 目录。');
+    }
 
     if (!fs.existsSync(sourceDir)) {
         console.error(`\n[Sidecar 准备] 严重错误：未找到源目录！`);

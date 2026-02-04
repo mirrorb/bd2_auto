@@ -32,8 +32,8 @@ bool HelloTask::step_setupWindow() {
 bool HelloTask::step_shot() {
     logger_->info("[Step] 截取游戏窗口...");
     cv::Mat screen = Screenshot::capture();
-    bool success = UIAutomator::verify_click(screen, UILayouts::UI_DING_YUE);
-    UIAutomator::drag(UILayouts::UI_RI_ZHI.location, UILayouts::UI_DING_YUE.location);
+    // bool success = UIAutomator::verify_click(screen, UILayouts::UI_DING_YUE);
+    // UIAutomator::drag(UILayouts::UI_RI_ZHI.location, UILayouts::UI_DING_YUE.location);
     // cv::imshow("ScreenShot", screen);
     // cv::waitKey(0);
     return true;

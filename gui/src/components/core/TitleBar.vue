@@ -3,7 +3,7 @@
     <div class="titlebar-content" data-tauri-drag-region>
       <div class="titlebar-left" data-tauri-drag-region>
         <i class="pi pi-box app-icon" data-tauri-drag-region></i>
-        <span class="app-title" data-tauri-drag-region>BD2 自动</span>
+        <span class="app-title" data-tauri-drag-region>BD2 AUTO</span>
       </div>
     </div>
     <div class="titlebar-controls">
