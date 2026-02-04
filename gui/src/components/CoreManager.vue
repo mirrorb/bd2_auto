@@ -16,6 +16,7 @@
             v-model:selectedTasks="selectedTasks"
             :queuePreview="queuePreview"
             :executionBusy="executionBusy"
+            :taskStatuses="taskStatuses"
             @tasks-change="onTasksChanged"
             @start-queue="startQueue"
             @stop-task="stopTask"
@@ -52,7 +53,7 @@ import StatusCard from './core/StatusCard.vue'
 import TaskConfigCard from './core/TaskConfigCard.vue'
 import TaskControlCard from './core/TaskControlCard.vue'
 import TitleBar from './core/TitleBar.vue'
-import type { FishingConfig, HelloConfig, LogEntry, StatusSummary, TaskMeta } from './core/types'
+import type { FishingConfig, HelloConfig, LogEntry, StatusSummary, TaskMeta, TaskStatusTag } from './core/types'
 
 const tasks = ref<TaskMeta[]>([])
 const selectedTasks = ref<string[]>(['fishing_task'])
@@ -87,6 +88,8 @@ const logLevelOptions: Array<{ label: string; value: 'all' | 'info' | 'warn' | '
 ]
 
 const statusSummary = ref<StatusSummary>({})
+const taskStatuses = ref<Record<string, TaskStatusTag>>({})
+const lastActiveTask = ref<string | null>(null)
 const lastEventAt = ref<number | null>(null)
 const lastStatusAt = ref<number | null>(null)
 const clockTick = ref(Date.now())
@@ -95,7 +98,8 @@ let unlistenFns: UnlistenFn[] = []
 let rpcId = 1
 let logId = 1
 
-const pendingRequests = new Map<number, string>()
+type PendingRequest = { method: string; taskName?: string }
+const pendingRequests = new Map<number, PendingRequest>()
 const appWindow = getCurrentWindow()
 
 const theme = ref<'light' | 'dark'>('light')
@@ -225,6 +229,51 @@ const formatDetail = (detail: unknown) => {
   )
 }
 
+const buildStatusTag = (status?: string): TaskStatusTag => {
+  if (!status) {
+    return { label: '未开始', severity: 'secondary' }
+  }
+  if (status.startsWith('运行中')) {
+    return { label: '运行中', severity: 'info' }
+  }
+  if (status === '已完成') {
+    return { label: '已完成', severity: 'success' }
+  }
+  if (status === '失败') {
+    return { label: '失败', severity: 'danger' }
+  }
+  if (status === '已取消') {
+    return { label: '已取消', severity: 'warn' }
+  }
+  if (status === '空闲') {
+    return { label: '空闲', severity: 'secondary' }
+  }
+  return { label: status, severity: 'secondary' }
+}
+
+const setTaskStatusTag = (taskName: string, tag: TaskStatusTag) => {
+  if (!taskName) return
+  taskStatuses.value = { ...taskStatuses.value, [taskName]: tag }
+}
+
+const setTaskStatus = (taskName: string, status?: string) => {
+  if (!taskName) return
+  setTaskStatusTag(taskName, buildStatusTag(status))
+}
+
+const ensureTaskStatuses = (taskList: TaskMeta[]) => {
+  if (taskList.length === 0) {
+    taskStatuses.value = {}
+    return
+  }
+  const current = taskStatuses.value
+  const next: Record<string, TaskStatusTag> = {}
+  for (const task of taskList) {
+    next[task.name] = current[task.name] ?? buildStatusTag()
+  }
+  taskStatuses.value = next
+}
+
 const pushLog = (level: LogEntry['level'], message: string, detail: unknown, source: string) => {
   const time = new Date().toLocaleTimeString()
   logs.value.unshift({
@@ -244,6 +293,9 @@ const handleRpcMessage = (payload: unknown, source: string) => {
     statusSummary.value = {}
     queueRunning.value = false
     queue.value = []
+    if (lastActiveTask.value) {
+      setTaskStatusTag(lastActiveTask.value, { label: '失败', severity: 'danger' })
+    }
     pushLog('error', '后端已退出，任务已中止。', payload, source)
     return
   }
@@ -266,17 +318,25 @@ const handleRpcMessage = (payload: unknown, source: string) => {
     return
   }
 
-  const requestMethod = typeof data?.id === 'number' ? pendingRequests.get(data.id) : undefined
+  const requestMeta = typeof data?.id === 'number' ? pendingRequests.get(data.id) : undefined
+  const requestMethod = requestMeta?.method
+  const requestTaskName = requestMeta?.taskName
   if (typeof data?.id === 'number') {
     pendingRequests.delete(data.id)
   }
 
   if (data?.error) {
+    if (requestMethod === 'task/start' && requestTaskName) {
+      setTaskStatusTag(requestTaskName, { label: '启动失败', severity: 'danger' })
+    }
     pushLog('error', data.error.message ?? 'RPC 错误', data.error, source)
     return
   }
 
   if (data?.result) {
+    if (requestMethod === 'task/start' && requestTaskName) {
+      setTaskStatusTag(requestTaskName, { label: '运行中', severity: 'info' })
+    }
     if (Array.isArray(data.result.tasks)) {
       tasks.value = data.result.tasks as TaskMeta[]
       const valid = selectedTasks.value.filter((t) => taskMap.value.has(t))
@@ -284,6 +344,7 @@ const handleRpcMessage = (payload: unknown, source: string) => {
       if (selectedTasks.value.length === 0 && tasks.value.length > 0) {
         selectedTasks.value = normalizeTaskOrder([tasks.value[0].name])
       }
+      ensureTaskStatuses(tasks.value)
       return
     }
     if (data.result?.active_task) {
@@ -292,6 +353,8 @@ const handleRpcMessage = (payload: unknown, source: string) => {
         status: data.result.active_task.status,
         progress: data.result.active_task.progress,
       }
+      lastActiveTask.value = data.result.active_task.name
+      setTaskStatus(data.result.active_task.name, data.result.active_task.status)
     } else {
       statusSummary.value = {}
     }
@@ -317,7 +380,11 @@ const sendRpc = async (method: string, params: Record<string, any>) => {
     method,
     params,
   }
-  pendingRequests.set(requestId, method)
+  const pending: PendingRequest = { method }
+  if (method === 'task/start' && typeof params.task_name === 'string') {
+    pending.taskName = params.task_name
+  }
+  pendingRequests.set(requestId, pending)
   await invoke('core_input', { input: JSON.stringify(request) })
 }
 

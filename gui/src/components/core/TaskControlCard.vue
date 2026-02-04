@@ -15,6 +15,12 @@
               @change="emit('tasks-change')"
             />
             <label class="task-label" :for="`task-${task.name}`">{{ task.label }}</label>
+            <Tag
+              v-if="taskStatuses[task.name]"
+              class="task-status"
+              :value="taskStatuses[task.name].label"
+              :severity="taskStatuses[task.name].severity"
+            />
             <Tag v-if="task.queue?.must_last" value="队尾" severity="secondary" />
             <Tag v-if="task.queue?.is_looping" value="循环" severity="contrast" />
           </div>
@@ -45,12 +51,13 @@ import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Checkbox from 'primevue/checkbox'
 import Tag from 'primevue/tag'
-import type { TaskMeta } from './types'
+import type { TaskMeta, TaskStatusTag } from './types'
 
 defineProps<{
   tasks: TaskMeta[]
   queuePreview: string[]
   executionBusy: boolean
+  taskStatuses: Record<string, TaskStatusTag>
 }>()
 
 const selectedTasks = defineModel<string[]>('selectedTasks', { required: true })
@@ -90,6 +97,10 @@ const emit = defineEmits<{
 .task-label {
   cursor: pointer;
   flex: 1;
+}
+
+.task-status {
+  margin-left: 4px;
 }
 
 .task-empty {

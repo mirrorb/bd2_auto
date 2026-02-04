@@ -23,6 +23,11 @@ export type StatusSummary = {
   progress?: number | string
 }
 
+export type TaskStatusTag = {
+  label: string
+  severity?: 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'
+}
+
 export type FishingConfig = {
   monitorName: string
   showMonitor: boolean
