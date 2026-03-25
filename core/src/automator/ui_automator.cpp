@@ -50,10 +50,10 @@ bool UIAutomator::verify(const cv::Mat& screen, const UILayouts::Metadata& layou
 
 }
 
-bool UIAutomator::verify_click(const cv::Mat& screen, const UILayouts::Metadata& layout, double confidence) {
+bool UIAutomator::verify_click(const cv::Mat& screen, const UILayouts::Metadata& layout, double confidence, IOBackend::Mode backend, bool instant_move) {
     // 先验证，如果成功，再行动。
     if (verify(screen, layout, confidence)) {
-        MouseHandler::click_in_rect(layout.location);
+        click_in_rect(layout.location, backend, instant_move);
         return true;
     }
     
@@ -112,7 +112,7 @@ std::optional<cv::Rect> UIAutomator::find(const cv::Mat& screen, const UITemplat
 
 }
 
-bool UIAutomator::find_click(const cv::Mat& screen, const UITemplates::Metadata& template_, double confidence) {
+bool UIAutomator::find_click(const cv::Mat& screen, const UITemplates::Metadata& template_, double confidence, IOBackend::Mode backend, bool instant_move) {
     // 定位模板
     auto found_location = find(screen, template_, confidence);
 
@@ -121,7 +121,7 @@ bool UIAutomator::find_click(const cv::Mat& screen, const UITemplates::Metadata&
         const cv::Rect& rect = *found_location;
 
         // 执行点击操作
-        MouseHandler::click_in_rect(rect);
+        click_in_rect(rect, backend, instant_move);
 
         return true;
     } else {

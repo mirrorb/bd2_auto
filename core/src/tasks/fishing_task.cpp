@@ -116,7 +116,7 @@ bool FishingTask::step_runLoop() {
 
         HWND hwnd = NULL;
         try {
-            hwnd = WindowHandler::get_game_HWND();
+            hwnd = WindowHandler::find_game_window();
         } catch (const WindowException&) {
             last_x = -1;
             lock_timer = 0;

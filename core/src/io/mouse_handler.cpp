@@ -1,170 +1,323 @@
 #define NOMINMAX
 
 #include "io/mouse_handler.h"
+
 #include <windows.h>
-#include <thread>
-#include <random>
+
+#include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <vector>
-#include <algorithm>
-#include <io/window_handler.h>
+#include <cstdlib>
+#include <random>
+#include <thread>
+
+#include "io/window_handler.h"
 
 namespace {
 
-    // 钩子句柄
-    HHOOK g_mouseHook = NULL;
+HHOOK g_mouse_hook = NULL;
 
-    // 低级鼠标钩子回调函数
-    LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
-        if (nCode == HC_ACTION) {
-            // 吞掉所有鼠标事件，实现禁用效果
-            return 1;
-        }
-        return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
+struct MessageTarget {
+    HWND hwnd = NULL;
+    cv::Point point;
+};
+
+LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode == HC_ACTION) {
+        return 1;
     }
-
+    return CallNextHookEx(g_mouse_hook, nCode, wParam, lParam);
 }
 
-void MouseHandler::enable_mouse_hook() {
-    if (g_mouseHook == NULL) {
-        g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, GetModuleHandle(NULL), 0);
-    }
-}
-
-void MouseHandler::disable_mouse_hook() {
-    if (g_mouseHook != NULL) {
-        UnhookWindowsHookEx(g_mouseHook);
-        g_mouseHook = NULL;
-    }
-}
-
-/**
- * @brief 在矩形内使用正态分布生成一个随机目标点。坐标为客户区坐标。
- */
 cv::Point generate_random_point_in_rect(const cv::Rect& target_rect) {
     const double center_x = target_rect.x + target_rect.width / 2.0;
     const double center_y = target_rect.y + target_rect.height / 2.0;
     const double std_dev_x = std::max(1.0, target_rect.width / 6.0);
     const double std_dev_y = std::max(1.0, target_rect.height / 6.0);
+
     static std::mt19937 gen(std::random_device{}());
     std::normal_distribution<> distrib_x(center_x, std_dev_x);
     std::normal_distribution<> distrib_y(center_y, std_dev_y);
+
     int click_x = static_cast<int>(distrib_x(gen));
     int click_y = static_cast<int>(distrib_y(gen));
+
     click_x = std::max(target_rect.x, std::min(target_rect.x + target_rect.width - 1, click_x));
     click_y = std::max(target_rect.y, std::min(target_rect.y + target_rect.height - 1, click_y));
     return cv::Point(click_x, click_y);
 }
 
-/**
- * @brief 将鼠标从当前位置移动到目标点。
- * @param start_point 起始点。
- * @param end_point 目标点。
- */
 void move_mouse_humanlike(const cv::Point& start_point, const cv::Point& end_point) {
     cv::Point2d start_point_d(start_point.x, start_point.y);
     cv::Point2d end_point_d(end_point.x, end_point.y);
 
-    double distance = cv::norm(end_point_d - start_point_d);
+    const double distance = cv::norm(end_point_d - start_point_d);
     if (distance < 3.0) {
         SetCursorPos(end_point.x, end_point.y);
-    } else {
-        // 贝塞尔曲线、抖动和延迟逻辑
-        cv::Point2d vec = end_point_d - start_point_d;
-        static std::mt19937 gen(std::random_device{}());
-        std::uniform_real_distribution<> distrib(0.0, 1.0);
-        cv::Point2d perpendicular_vec(-vec.y, vec.x);
-        double length = cv::norm(perpendicular_vec);
-        if (length > 1e-6) { perpendicular_vec.x /= length; perpendicular_vec.y /= length; }
-        double offset_magnitude = std::min(distance * 0.4, 150.0) * (distrib(gen) - 0.5) * 2.0;
-        cv::Point2d control_1 = start_point_d + 0.25 * vec + 0.5 * offset_magnitude * perpendicular_vec;
-        cv::Point2d control_2 = start_point_d + 0.75 * vec - 0.5 * offset_magnitude * perpendicular_vec;
-        int num_steps = static_cast<int>(std::max(25.0, distance / 10.0));
-        double total_duration_ms = std::max(150.0, distance * (0.4 + distrib(gen) * 0.2));
-        auto ease_in_out_cubic = [](double t){ return t < 0.5 ? 4 * t * t * t : 1 - std::pow(-2 * t + 2, 3) / 2; };
-        for (int i = 0; i <= num_steps; ++i) {
-            double t_eased = ease_in_out_cubic(static_cast<double>(i) / num_steps);
-            cv::Point2d p_on_curve = std::pow(1 - t_eased, 3) * start_point_d + 3 * std::pow(1 - t_eased, 2) * t_eased * control_1 + 3 * (1 - t_eased) * std::pow(t_eased, 2) * control_2 + std::pow(t_eased, 3) * end_point_d;
-            double jitter_x = (distrib(gen) * 2.0 - 1.0) * 1.5;
-            double jitter_y = (distrib(gen) * 2.0 - 1.0) * 1.5;
-            cv::Point final_pos(static_cast<int>(p_on_curve.x + jitter_x), static_cast<int>(p_on_curve.y + jitter_y));
-            SetCursorPos(final_pos.x, final_pos.y);
-            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(total_duration_ms / num_steps)));
-        }
+        return;
     }
 
+    cv::Point2d vec = end_point_d - start_point_d;
+    static std::mt19937 gen(std::random_device{}());
+    std::uniform_real_distribution<> distrib(0.0, 1.0);
+    cv::Point2d perpendicular_vec(-vec.y, vec.x);
+    const double length = cv::norm(perpendicular_vec);
+    if (length > 1e-6) {
+        perpendicular_vec.x /= length;
+        perpendicular_vec.y /= length;
+    }
+
+    const double offset_magnitude = std::min(distance * 0.4, 150.0) * (distrib(gen) - 0.5) * 2.0;
+    const cv::Point2d control_1 = start_point_d + 0.25 * vec + 0.5 * offset_magnitude * perpendicular_vec;
+    const cv::Point2d control_2 = start_point_d + 0.75 * vec - 0.5 * offset_magnitude * perpendicular_vec;
+
+    const int num_steps = static_cast<int>(std::max(25.0, distance / 10.0));
+    const double total_duration_ms = std::max(150.0, distance * (0.4 + distrib(gen) * 0.2));
+    const auto ease_in_out_cubic = [](double t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - std::pow(-2 * t + 2, 3) / 2;
+    };
+
+    for (int i = 0; i <= num_steps; ++i) {
+        const double t_eased = ease_in_out_cubic(static_cast<double>(i) / num_steps);
+        const cv::Point2d point_on_curve =
+            std::pow(1 - t_eased, 3) * start_point_d +
+            3 * std::pow(1 - t_eased, 2) * t_eased * control_1 +
+            3 * (1 - t_eased) * std::pow(t_eased, 2) * control_2 +
+            std::pow(t_eased, 3) * end_point_d;
+
+        const double jitter_x = (distrib(gen) * 2.0 - 1.0) * 1.5;
+        const double jitter_y = (distrib(gen) * 2.0 - 1.0) * 1.5;
+        const cv::Point final_pos(static_cast<int>(point_on_curve.x + jitter_x), static_cast<int>(point_on_curve.y + jitter_y));
+        SetCursorPos(final_pos.x, final_pos.y);
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(total_duration_ms / num_steps)));
+    }
 }
 
-void MouseHandler::click_in_rect(const cv::Rect& target_rect, bool instant_move) {
+LPARAM make_client_lparam(const cv::Point& point) {
+    return LPARAM((static_cast<int>(point.y) << 16) | (static_cast<int>(point.x) & 0xFFFF));
+}
+
+void post_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+    PostMessageA(hwnd, message, wparam, lparam);
+}
+
+void send_cancel_mode(HWND hwnd) {
+    HWND target_hwnd = GetParent(hwnd);
+    if (!target_hwnd) {
+        target_hwnd = hwnd;
+    }
+    post_window_message(target_hwnd, WM_CANCELMODE, WPARAM(0), LPARAM(0));
+}
+
+float ease_in_out(float t) {
+    if (t < 0.5f) {
+        return 4.0f * t * t * t;
+    }
+    return 1.0f - std::pow(-2.0f * t + 2.0f, 3.0f) / 2.0f;
+}
+
+cv::Point map_point_between_windows(HWND from, HWND to, const cv::Point& point) {
+    POINT mapped = {point.x, point.y};
+    MapWindowPoints(from, to, &mapped, 1);
+    return cv::Point(mapped.x, mapped.y);
+}
+
+MessageTarget resolve_message_target(HWND root_hwnd, const cv::Point& root_client_point) {
+    MessageTarget target{root_hwnd, root_client_point};
+    HWND current_hwnd = root_hwnd;
+    cv::Point current_point = root_client_point;
+
+    while (current_hwnd && IsWindow(current_hwnd)) {
+        POINT probe = {current_point.x, current_point.y};
+        HWND child = ChildWindowFromPointEx(
+            current_hwnd,
+            probe,
+            CWP_SKIPDISABLED | CWP_SKIPINVISIBLE | CWP_SKIPTRANSPARENT
+        );
+
+        if (!child || child == current_hwnd) {
+            break;
+        }
+
+        current_point = map_point_between_windows(current_hwnd, child, current_point);
+        current_hwnd = child;
+        target.hwnd = current_hwnd;
+        target.point = current_point;
+    }
+
+    return target;
+}
+
+void drag_via_window_messages(HWND hwnd, const cv::Point& start_point, const cv::Point& end_point, bool instant_move) {
+    const auto total_duration = std::chrono::milliseconds(instant_move ? 40 : 140);
+    const LPARAM down_pos = make_client_lparam(start_point);
+
+    send_cancel_mode(hwnd);
+    post_window_message(hwnd, WM_MOUSEMOVE, WPARAM(0), down_pos);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    post_window_message(hwnd, WM_LBUTTONDOWN, WPARAM(MK_LBUTTON), down_pos);
+
+    cv::Point last_point = start_point;
+    const auto started_at = std::chrono::steady_clock::now();
+
+    while (true) {
+        const auto elapsed = std::chrono::steady_clock::now() - started_at;
+        if (elapsed >= total_duration) {
+            break;
+        }
+
+        const float t = std::chrono::duration<float>(elapsed).count() / std::chrono::duration<float>(total_duration).count();
+        const float eased = ease_in_out(std::clamp(t, 0.0f, 1.0f));
+        const cv::Point current(
+            start_point.x + static_cast<int>(std::round((end_point.x - start_point.x) * eased)),
+            start_point.y + static_cast<int>(std::round((end_point.y - start_point.y) * eased))
+        );
+
+        if (current != last_point) {
+            post_window_message(hwnd, WM_MOUSEMOVE, WPARAM(MK_LBUTTON), make_client_lparam(current));
+            last_point = current;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+
+    const LPARAM up_pos = make_client_lparam(end_point);
+    post_window_message(hwnd, WM_MOUSEMOVE, WPARAM(MK_LBUTTON), up_pos);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    post_window_message(hwnd, WM_LBUTTONUP, WPARAM(0), up_pos);
+}
+
+} // namespace
+
+void MouseHandler::enable_mouse_hook() {
+    if (g_mouse_hook == NULL) {
+        g_mouse_hook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, GetModuleHandle(NULL), 0);
+    }
+}
+
+void MouseHandler::disable_mouse_hook() {
+    if (g_mouse_hook != NULL) {
+        UnhookWindowsHookEx(g_mouse_hook);
+        g_mouse_hook = NULL;
+    }
+}
+
+void MouseHandler::click_in_rect_with_win32(const cv::Rect& target_rect, bool instant_move) {
     MouseHookGuard guard;
-    // 1. 获取窗口句柄并进行有效性检查
-    HWND hwnd = WindowHandler::get_game_HWND();
+    HWND hwnd = WindowHandler::find_game_window();
 
-    // 在客户区坐标系下生成随机目标点并转换为绝对屏幕坐标
-    cv::Point target_client_point = generate_random_point_in_rect(target_rect);
-    POINT target_screen_point_p = { target_client_point.x, target_client_point.y };
-    ClientToScreen(hwnd, &target_screen_point_p);
-    cv::Point target_screen_point(target_screen_point_p.x, target_screen_point_p.y);
+    const cv::Point target_client_point = generate_random_point_in_rect(target_rect);
+    POINT target_screen_point_raw = {target_client_point.x, target_client_point.y};
+    ClientToScreen(hwnd, &target_screen_point_raw);
+    const cv::Point target_screen_point(target_screen_point_raw.x, target_screen_point_raw.y);
 
-    // 执行移动
     if (instant_move) {
         SetCursorPos(target_screen_point.x, target_screen_point.y);
-    }
-    else {
-        POINT current_pos_p;
-        GetCursorPos(&current_pos_p);
-        cv::Point current_screen_point(current_pos_p.x, current_pos_p.y);
-        move_mouse_humanlike(current_screen_point, target_screen_point);
+    } else {
+        POINT current_pos_raw;
+        GetCursorPos(&current_pos_raw);
+        move_mouse_humanlike(cv::Point(current_pos_raw.x, current_pos_raw.y), target_screen_point);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(20 + rand() % 30));
-
-    // 执行点击动作
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-    std::this_thread::sleep_for(std::chrono::milliseconds(40 + rand() % 60)); // 模拟按键按下的时长
+    std::this_thread::sleep_for(std::chrono::milliseconds(40 + rand() % 60));
     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
 }
 
-void MouseHandler::drag(const cv::Rect& start_rect, const cv::Rect& end_rect, bool instant_move) {
-    // hook鼠标
-    MouseHookGuard guard;
-    // 获取窗口句柄
-    HWND hwnd = WindowHandler::get_game_HWND();
-    if (!hwnd || !IsWindow(hwnd)) { return; }
-    cv::Point start_client_point = generate_random_point_in_rect(start_rect);
-    cv::Point end_client_point = generate_random_point_in_rect(end_rect);
-    POINT start_screen_point_p = { start_client_point.x, start_client_point.y };
-    // 坐标转换
-    ClientToScreen(hwnd, &start_screen_point_p);
-    POINT end_screen_point_p = { end_client_point.x, end_client_point.y };
-    ClientToScreen(hwnd, &end_screen_point_p);
-    cv::Point start_screen_point(start_screen_point_p.x, start_screen_point_p.y);
-    cv::Point end_screen_point(end_screen_point_p.x, end_screen_point_p.y);
+void MouseHandler::click_in_rect_with_window_message(const cv::Rect& target_rect, bool instant_move) {
+    HWND root_hwnd = WindowHandler::find_game_window();
+    const cv::Point root_client_point = generate_random_point_in_rect(target_rect);
+    const MessageTarget target = resolve_message_target(root_hwnd, root_client_point);
+    const LPARAM pos = make_client_lparam(target.point);
 
-    // 移动到起点
+    send_cancel_mode(target.hwnd);
+    post_window_message(target.hwnd, WM_MOUSEMOVE, WPARAM(0), pos);
+    std::this_thread::sleep_for(std::chrono::milliseconds(instant_move ? 6 : 12));
+    post_window_message(target.hwnd, WM_LBUTTONDOWN, WPARAM(MK_LBUTTON), pos);
+    std::this_thread::sleep_for(std::chrono::milliseconds(instant_move ? 6 : 12));
+    post_window_message(target.hwnd, WM_LBUTTONUP, WPARAM(0), pos);
+}
+
+void MouseHandler::click_in_rect_with_backend(const cv::Rect& target_rect, IOBackend::Mode backend, bool instant_move) {
+    switch (backend) {
+    case IOBackend::Mode::WindowMessage:
+        click_in_rect_with_window_message(target_rect, instant_move);
+        break;
+    case IOBackend::Mode::Win32:
+    default:
+        click_in_rect_with_win32(target_rect, instant_move);
+        break;
+    }
+}
+
+void MouseHandler::drag_with_win32(const cv::Rect& start_rect, const cv::Rect& end_rect, bool instant_move) {
+    MouseHookGuard guard;
+    HWND hwnd = WindowHandler::find_game_window();
+    if (!hwnd || !IsWindow(hwnd)) {
+        return;
+    }
+
+    const cv::Point start_client_point = generate_random_point_in_rect(start_rect);
+    const cv::Point end_client_point = generate_random_point_in_rect(end_rect);
+
+    POINT start_screen_point_raw = {start_client_point.x, start_client_point.y};
+    ClientToScreen(hwnd, &start_screen_point_raw);
+    POINT end_screen_point_raw = {end_client_point.x, end_client_point.y};
+    ClientToScreen(hwnd, &end_screen_point_raw);
+
+    const cv::Point start_screen_point(start_screen_point_raw.x, start_screen_point_raw.y);
+    const cv::Point end_screen_point(end_screen_point_raw.x, end_screen_point_raw.y);
+
     if (instant_move) {
         SetCursorPos(start_screen_point.x, start_screen_point.y);
     } else {
-        POINT current_pos;
-        GetCursorPos(&current_pos);
-        cv::Point current_screen_point(current_pos.x, current_pos.y);
-        move_mouse_humanlike(current_screen_point, start_screen_point); 
+        POINT current_pos_raw;
+        GetCursorPos(&current_pos_raw);
+        move_mouse_humanlike(cv::Point(current_pos_raw.x, current_pos_raw.y), start_screen_point);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(80 + rand() % 40));
 
-    // 按下鼠标
+    std::this_thread::sleep_for(std::chrono::milliseconds(80 + rand() % 40));
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(120 + rand() % 60));
 
-    // 执行拖拽
     if (instant_move) {
         SetCursorPos(end_screen_point.x, end_screen_point.y);
     } else {
         move_mouse_humanlike(start_screen_point, end_screen_point);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(80 + rand() % 40));
 
-    // 释放鼠标
+    std::this_thread::sleep_for(std::chrono::milliseconds(80 + rand() % 40));
     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+}
+
+void MouseHandler::drag_with_window_message(const cv::Rect& start_rect, const cv::Rect& end_rect, bool instant_move) {
+    HWND root_hwnd = WindowHandler::find_game_window();
+    if (!root_hwnd || !IsWindow(root_hwnd)) {
+        return;
+    }
+
+    const cv::Point root_start = generate_random_point_in_rect(start_rect);
+    const cv::Point root_end = generate_random_point_in_rect(end_rect);
+    const MessageTarget target = resolve_message_target(root_hwnd, root_start);
+    const cv::Point end_point = map_point_between_windows(root_hwnd, target.hwnd, root_end);
+
+    drag_via_window_messages(
+        target.hwnd,
+        target.point,
+        end_point,
+        instant_move
+    );
+}
+
+void MouseHandler::drag_with_backend(const cv::Rect& start_rect, const cv::Rect& end_rect, IOBackend::Mode backend, bool instant_move) {
+    switch (backend) {
+    case IOBackend::Mode::WindowMessage:
+        drag_with_window_message(start_rect, end_rect, instant_move);
+        break;
+    case IOBackend::Mode::Win32:
+    default:
+        drag_with_win32(start_rect, end_rect, instant_move);
+        break;
+    }
 }

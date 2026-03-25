@@ -22,7 +22,7 @@ bool TaskManager::startTask(const std::string& task_name, const json& params) {
     }
 
     try {
-        WindowHandler::get_game_HWND();
+        WindowHandler::find_game_window();
     } catch (const WindowException&) {
         last_error_ = "未找到游戏窗口，请先打开游戏。";
         return false;
